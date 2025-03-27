@@ -18,6 +18,7 @@ impl UspaceContext {
     pub fn new(entry: usize, ustack_top: VirtAddr, arg0: usize) -> Self {
         const SPIE: usize = 1 << 5; // enable interrupts
         const SUM: usize = 1 << 18; // enable user memory access in supervisor mode
+        const FS: usize = 1 << 13; // enable floating point unit for user space
         Self(TrapFrame {
             regs: GeneralRegisters {
                 a0: arg0,
@@ -25,7 +26,7 @@ impl UspaceContext {
                 ..Default::default()
             },
             sepc: entry,
-            sstatus: SPIE | SUM,
+            sstatus: SPIE | SUM | FS,
         })
     }
 
