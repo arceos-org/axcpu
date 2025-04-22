@@ -5,9 +5,8 @@ mod context;
 mod trap;
 
 use core::arch::asm;
-use loongArch64::register::{crmd, ecfg, eentry, pgdh, pgdl, stlbps, tlbidx, tlbrehi, tlbrentry};
+use loongArch64::register::{crmd, ecfg, eentry, pgdh, pgdl};
 use memory_addr::{PhysAddr, VirtAddr};
-use page_table_multiarch::loongarch64::LA64MetaData;
 
 pub use self::context::{TaskContext, TrapFrame};
 
@@ -72,7 +71,8 @@ pub unsafe fn write_page_table_root0(root_paddr: PhysAddr) {
     let old_root = read_page_table_root0();
     trace!(
         "set user page table root: {:#x} => {:#x}",
-        old_root, root_paddr
+        old_root,
+        root_paddr
     );
 
     pgdl::set_base(root_paddr.as_usize() as _);
@@ -157,25 +157,6 @@ pub fn set_pwc(pwcl: u32, pwch: u32) {
             in(reg) pwch
         )
     }
-}
-
-/// Init the TLB configuration and set tlb refill handler.
-///
-/// TLBRENTY: <https://loongson.github.io/LoongArch-Documentation/LoongArch-Vol1-EN.html#tlb-refill-exception-entry-base-address>
-pub fn init_tlb() {
-    // Page Size 4KB
-    const PS_4K: usize = 0x0c;
-    tlbidx::set_ps(PS_4K);
-    stlbps::set_ps(PS_4K);
-    tlbrehi::set_ps(PS_4K);
-
-    set_pwc(LA64MetaData::PWCL_VALUE, LA64MetaData::PWCH_VALUE);
-
-    unsafe extern "C" {
-        fn handle_tlb_refill();
-    }
-    let paddr = crate::mem::virt_to_phys(va!(handle_tlb_refill as usize));
-    tlbrentry::set_tlbrentry(paddr.as_usize());
 }
 
 /// Reads the thread pointer of the current CPU.

@@ -2,8 +2,8 @@ use core::fmt;
 
 use lazyinit::LazyInit;
 use x86_64::addr::VirtAddr;
-use x86_64::structures::DescriptorTablePointer;
 use x86_64::structures::idt::{Entry, HandlerFunc, InterruptDescriptorTable};
+use x86_64::structures::DescriptorTablePointer;
 
 const NUM_INT: usize = 256;
 

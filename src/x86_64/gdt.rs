@@ -2,10 +2,10 @@ use core::fmt;
 
 use lazyinit::LazyInit;
 use x86_64::instructions::tables::{lgdt, load_tss};
-use x86_64::registers::segmentation::{CS, Segment, SegmentSelector};
+use x86_64::registers::segmentation::{Segment, SegmentSelector, CS};
 use x86_64::structures::gdt::{Descriptor, DescriptorFlags};
-use x86_64::structures::{DescriptorTablePointer, tss::TaskStateSegment};
-use x86_64::{PrivilegeLevel, addr::VirtAddr};
+use x86_64::structures::{tss::TaskStateSegment, DescriptorTablePointer};
+use x86_64::{addr::VirtAddr, PrivilegeLevel};
 
 #[unsafe(no_mangle)]
 #[percpu::def_percpu]

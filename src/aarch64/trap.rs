@@ -1,12 +1,10 @@
-use core::arch::global_asm;
-
 use aarch64_cpu::registers::{ESR_EL1, FAR_EL1};
-use page_table_entry::MappingFlags;
 use tock_registers::interfaces::Readable;
 
 use super::TrapFrame;
+use crate::trap::PageFaultFlags;
 
-global_asm!(include_str!("trap.S"), cache_current_task_ptr = sym crate::cpu::cache_current_task_ptr);
+core::arch::global_asm!(include_str!("trap.S"));
 
 #[repr(u8)]
 #[derive(Debug)]
@@ -42,9 +40,9 @@ fn handle_irq_exception(_tf: &TrapFrame) {
 }
 
 fn handle_instruction_abort(tf: &TrapFrame, iss: u64, is_user: bool) {
-    let mut access_flags = MappingFlags::EXECUTE;
+    let mut access_flags = PageFaultFlags::EXECUTE;
     if is_user {
-        access_flags |= MappingFlags::USER;
+        access_flags |= PageFaultFlags::USER;
     }
     let vaddr = va!(FAR_EL1.get() as usize);
 
@@ -68,12 +66,12 @@ fn handle_data_abort(tf: &TrapFrame, iss: u64, is_user: bool) {
     let wnr = (iss & (1 << 6)) != 0; // WnR: Write not Read
     let cm = (iss & (1 << 8)) != 0; // CM: Cache maintenance
     let mut access_flags = if wnr & !cm {
-        MappingFlags::WRITE
+        PageFaultFlags::WRITE
     } else {
-        MappingFlags::READ
+        PageFaultFlags::READ
     };
     if is_user {
-        access_flags |= MappingFlags::USER;
+        access_flags |= PageFaultFlags::USER;
     }
     let vaddr = va!(FAR_EL1.get() as usize);
 

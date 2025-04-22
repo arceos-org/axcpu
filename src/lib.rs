@@ -1,4 +1,16 @@
-//! Architecture-specific types and operations.
+#![cfg_attr(not(test), no_std)]
+#![cfg_attr(doc, feature(doc_auto_cfg))]
+#![feature(naked_functions)]
+#![doc = include_str!("../README.md")]
+
+#[macro_use]
+extern crate log;
+
+#[macro_use]
+extern crate memory_addr;
+
+#[macro_use]
+pub mod trap;
 
 cfg_if::cfg_if! {
     if #[cfg(target_arch = "x86_64")] {

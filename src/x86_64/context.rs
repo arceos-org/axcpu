@@ -1,5 +1,6 @@
 use core::{arch::naked_asm, fmt};
 use memory_addr::VirtAddr;
+
 /// Saved registers when a trap (interrupt or exception) occurs.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -84,13 +85,12 @@ impl UspaceContext {
     /// Creates a new context with the given entry point, user stack pointer,
     /// and the argument.
     pub fn new(entry: usize, ustack_top: VirtAddr, arg0: usize) -> Self {
-        use crate::arch::GdtStruct;
+        use super::GdtStruct;
         use x86_64::registers::rflags::RFlags;
         Self(TrapFrame {
             rdi: arg0 as _,
             rip: entry as _,
             cs: GdtStruct::UCODE64_SELECTOR.0 as _,
-            #[cfg(feature = "irq")]
             rflags: RFlags::INTERRUPT_FLAG.bits(), // IOPL = 0, IF = 1
             rsp: ustack_top.as_usize() as _,
             ss: GdtStruct::UDATA_SELECTOR.0 as _,
@@ -103,7 +103,7 @@ impl UspaceContext {
     /// It copies almost all registers except `CS` and `SS` which need to be
     /// set to the user segment selectors.
     pub const fn from(tf: &TrapFrame) -> Self {
-        use crate::arch::GdtStruct;
+        use super::GdtStruct;
         let mut tf = *tf;
         tf.cs = GdtStruct::UCODE64_SELECTOR.0 as _;
         tf.ss = GdtStruct::UDATA_SELECTOR.0 as _;
@@ -292,13 +292,13 @@ impl TaskContext {
     ///
     /// [`init`]: TaskContext::init
     /// [`switch_to`]: TaskContext::switch_to
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             kstack_top: va!(0),
             rsp: 0,
             fs_base: 0,
             #[cfg(feature = "uspace")]
-            cr3: crate::paging::kernel_page_table_root(),
+            cr3: pa!(0), // TODO
             #[cfg(feature = "fp_simd")]
             ext_state: ExtendedState::default(),
             #[cfg(feature = "uspace")]
@@ -315,10 +315,13 @@ impl TaskContext {
             // is executed), (stack pointer + 8) should be 16-byte aligned.
             let frame_ptr = (kstack_top.as_mut_ptr() as *mut u64).sub(1);
             let frame_ptr = (frame_ptr as *mut ContextSwitchFrame).sub(1);
-            core::ptr::write(frame_ptr, ContextSwitchFrame {
-                rip: entry as _,
-                ..Default::default()
-            });
+            core::ptr::write(
+                frame_ptr,
+                ContextSwitchFrame {
+                    rip: entry as _,
+                    ..Default::default()
+                },
+            );
             self.rsp = frame_ptr as u64;
         }
         self.kstack_top = kstack_top;

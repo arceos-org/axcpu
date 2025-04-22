@@ -1,9 +1,10 @@
-use super::context::TrapFrame;
 use loongArch64::register::{
     badv,
     estat::{self, Exception, Trap},
 };
-use page_table_entry::MappingFlags;
+
+use super::context::TrapFrame;
+use crate::trap::PageFaultFlags;
 
 core::arch::global_asm!(
     include_asm_macros!(),
@@ -16,9 +17,9 @@ fn handle_breakpoint(era: &mut usize) {
     *era += 4;
 }
 
-fn handle_page_fault(tf: &TrapFrame, mut access_flags: MappingFlags, is_user: bool) {
+fn handle_page_fault(tf: &TrapFrame, mut access_flags: PageFaultFlags, is_user: bool) {
     if is_user {
-        access_flags |= MappingFlags::USER;
+        access_flags |= PageFaultFlags::USER;
     }
     let vaddr = va!(badv::read().raw());
     if !handle_trap!(PAGE_FAULT, vaddr, access_flags, is_user) {
@@ -45,15 +46,15 @@ fn loongarch64_trap_handler(tf: &mut TrapFrame, from_user: bool) {
         }
         Trap::Exception(Exception::LoadPageFault)
         | Trap::Exception(Exception::PageNonReadableFault) => {
-            handle_page_fault(tf, MappingFlags::READ, from_user)
+            handle_page_fault(tf, PageFaultFlags::READ, from_user)
         }
         Trap::Exception(Exception::StorePageFault)
         | Trap::Exception(Exception::PageModifyFault) => {
-            handle_page_fault(tf, MappingFlags::WRITE, from_user)
+            handle_page_fault(tf, PageFaultFlags::WRITE, from_user)
         }
         Trap::Exception(Exception::FetchPageFault)
         | Trap::Exception(Exception::PageNonExecutableFault) => {
-            handle_page_fault(tf, MappingFlags::EXECUTE, from_user);
+            handle_page_fault(tf, PageFaultFlags::EXECUTE, from_user);
         }
         Trap::Exception(Exception::Breakpoint) => handle_breakpoint(&mut tf.era),
         Trap::Interrupt(_) => {

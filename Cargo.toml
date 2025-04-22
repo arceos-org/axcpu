@@ -44,5 +44,8 @@ tock-registers = "0.9"
 [target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
 riscv = "0.13"
 
+[target.'cfg(target_arch = "loongarch64")'.dependencies]
+loongArch64 = "0.2.4"
+
 [lints.clippy]
 new_without_default = "allow"

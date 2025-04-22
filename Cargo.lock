@@ -19,6 +19,7 @@ dependencies = [
  "cfg-if",
  "linkme",
  "log",
+ "loongArch64",
  "memory_addr",
  "page_table_entry",
  "riscv",
@@ -89,6 +90,16 @@ name = "log"
 version = "0.4.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
+
+[[package]]
+name = "loongArch64"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c9f0d275c70310e2a9d2fc23250c5ac826a73fa828a5f256401f85c5c554283"
+dependencies = [
+ "bit_field",
+ "bitflags 2.9.0",
+]
 
 [[package]]
 name = "memory_addr"

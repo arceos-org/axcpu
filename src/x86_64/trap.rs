@@ -1,8 +1,8 @@
-use page_table_entry::MappingFlags;
 use x86::{controlregs::cr2, irq::*};
 use x86_64::structures::idt::PageFaultErrorCode;
 
 use super::context::TrapFrame;
+use crate::trap::PageFaultFlags;
 
 core::arch::global_asm!(include_str!("trap.S"));
 
@@ -66,7 +66,7 @@ fn vec_to_str(vec: u64) -> &'static str {
     }
 }
 
-fn err_code_to_flags(err_code: u64) -> Result<MappingFlags, u64> {
+fn err_code_to_flags(err_code: u64) -> Result<PageFaultFlags, u64> {
     let code = PageFaultErrorCode::from_bits_truncate(err_code);
     let reserved_bits = (PageFaultErrorCode::CAUSED_BY_WRITE
         | PageFaultErrorCode::USER_MODE
@@ -75,17 +75,17 @@ fn err_code_to_flags(err_code: u64) -> Result<MappingFlags, u64> {
     if code.intersects(reserved_bits) {
         Err(err_code)
     } else {
-        let mut flags = MappingFlags::empty();
+        let mut flags = PageFaultFlags::empty();
         if code.contains(PageFaultErrorCode::CAUSED_BY_WRITE) {
-            flags |= MappingFlags::WRITE;
+            flags |= PageFaultFlags::WRITE;
         } else {
-            flags |= MappingFlags::READ;
+            flags |= PageFaultFlags::READ;
         }
         if code.contains(PageFaultErrorCode::USER_MODE) {
-            flags |= MappingFlags::USER;
+            flags |= PageFaultFlags::USER;
         }
         if code.contains(PageFaultErrorCode::INSTRUCTION_FETCH) {
-            flags |= MappingFlags::EXECUTE;
+            flags |= PageFaultFlags::EXECUTE;
         }
         Ok(flags)
     }

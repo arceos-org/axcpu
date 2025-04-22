@@ -210,8 +210,8 @@ pub struct TaskContext {
 
 impl TaskContext {
     /// Creates a new default context for a new task.
-    pub fn new() -> Self {
-        Default::default()
+    pub const fn new() -> Self {
+        unsafe { core::mem::MaybeUninit::zeroed().assume_init() }
     }
 
     /// Initializes the context for a new task, with the given entry point and

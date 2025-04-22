@@ -1,9 +1,9 @@
-use page_table_entry::MappingFlags;
-use riscv::interrupt::Trap;
 use riscv::interrupt::supervisor::{Exception as E, Interrupt as I};
+use riscv::interrupt::Trap;
 use riscv::register::{scause, stval};
 
 use super::TrapFrame;
+use crate::trap::PageFaultFlags;
 
 core::arch::global_asm!(
     include_asm_macros!(),
@@ -16,9 +16,9 @@ fn handle_breakpoint(sepc: &mut usize) {
     *sepc += 2
 }
 
-fn handle_page_fault(tf: &TrapFrame, mut access_flags: MappingFlags, is_user: bool) {
+fn handle_page_fault(tf: &TrapFrame, mut access_flags: PageFaultFlags, is_user: bool) {
     if is_user {
-        access_flags |= MappingFlags::USER;
+        access_flags |= PageFaultFlags::USER;
     }
     let vaddr = va!(stval::read());
     if !handle_trap!(PAGE_FAULT, vaddr, access_flags, is_user) {
@@ -44,17 +44,17 @@ fn riscv_trap_handler(tf: &mut TrapFrame, from_user: bool) {
                 tf.sepc += 4;
             }
             Trap::Exception(E::LoadPageFault) => {
-                handle_page_fault(tf, MappingFlags::READ, from_user)
+                handle_page_fault(tf, PageFaultFlags::READ, from_user)
             }
             Trap::Exception(E::StorePageFault) => {
-                handle_page_fault(tf, MappingFlags::WRITE, from_user)
+                handle_page_fault(tf, PageFaultFlags::WRITE, from_user)
             }
             Trap::Exception(E::InstructionPageFault) => {
-                handle_page_fault(tf, MappingFlags::EXECUTE, from_user)
+                handle_page_fault(tf, PageFaultFlags::EXECUTE, from_user)
             }
             Trap::Exception(E::Breakpoint) => handle_breakpoint(&mut tf.sepc),
-            Trap::Interrupt(_) => {
-                handle_trap!(IRQ, scause.bits());
+            Trap::Interrupt(int) => {
+                handle_trap!(IRQ, int as usize);
             }
             _ => {
                 panic!("Unhandled trap {:?} @ {:#x}:\n{:#x?}", cause, tf.sepc, tf);
@@ -62,7 +62,7 @@ fn riscv_trap_handler(tf: &mut TrapFrame, from_user: bool) {
         }
     } else {
         panic!(
-            "Unknown trap {:?} @ {:#x}:\n{:#x?}",
+            "Unknown trap {:#x?} @ {:#x}:\n{:#x?}",
             scause.cause(),
             tf.sepc,
             tf

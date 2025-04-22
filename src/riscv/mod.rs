@@ -62,7 +62,7 @@ pub unsafe fn write_page_table_root(root_paddr: PhysAddr) {
     let old_root = read_page_table_root();
     trace!("set page table root: {:#x} => {:#x}", old_root, root_paddr);
     if old_root != root_paddr {
-        satp::set(satp::Mode::Sv39, 0, root_paddr.as_usize() >> 12);
+        unsafe { satp::set(satp::Mode::Sv39, 0, root_paddr.as_usize() >> 12) };
         asm::sfence_vma_all();
     }
 }
@@ -73,19 +73,20 @@ pub unsafe fn write_page_table_root(root_paddr: PhysAddr) {
 /// entry that maps the given virtual address.
 #[inline]
 pub fn flush_tlb(vaddr: Option<VirtAddr>) {
-    unsafe {
-        if let Some(vaddr) = vaddr {
-            asm::sfence_vma(0, vaddr.as_usize())
-        } else {
-            asm::sfence_vma_all();
-        }
+    if let Some(vaddr) = vaddr {
+        asm::sfence_vma(0, vaddr.as_usize())
+    } else {
+        asm::sfence_vma_all();
     }
 }
 
 /// Writes Supervisor Trap Vector Base Address Register (`stvec`).
 #[inline]
 pub fn set_trap_vector_base(stvec: usize) {
-    unsafe { stvec::write(stvec, stvec::TrapMode::Direct) }
+    let mut reg = stvec::read();
+    reg.set_address(stvec);
+    reg.set_trap_mode(stvec::TrapMode::Direct);
+    unsafe { stvec::write(reg) }
 }
 
 /// Reads the thread pointer of the current CPU.
@@ -107,7 +108,7 @@ pub fn read_thread_pointer() -> usize {
 /// This function is unsafe as it changes the CPU states.
 #[inline]
 pub unsafe fn write_thread_pointer(tp: usize) {
-    core::arch::asm!("mv tp, {}", in(reg) tp)
+    unsafe { core::arch::asm!("mv tp, {}", in(reg) tp) }
 }
 
 /// Initializes CPU states on the current CPU.
