@@ -131,13 +131,13 @@ pub unsafe fn write_exception_entry_base(eentry: usize) {
 ///
 /// # Safety
 ///
-/// This function uses `unsafe` inline assembly to write values to
-/// `LA_CSR_PWCL` and `LA_CSR_PWCH`.
+/// This function is unsafe as it changes the page walk configuration such as
+/// levels and starting bits.
 ///
-/// - `PWCL` <https://loongson.github.io/LoongArch-Documentation/LoongArch-Vol1-EN.html#page-walk-controller-for-lower-half-address-space>
-/// - `PWCH` <https://loongson.github.io/LoongArch-Documentation/LoongArch-Vol1-EN.html#page-walk-controller-for-higher-half-address-space>
+/// - `PWCL`: <https://loongson.github.io/LoongArch-Documentation/LoongArch-Vol1-EN.html#page-walk-controller-for-lower-half-address-space>
+/// - `PWCH`: <https://loongson.github.io/LoongArch-Documentation/LoongArch-Vol1-EN.html#page-walk-controller-for-higher-half-address-space>
 #[inline]
-pub fn write_pwc(pwcl: u32, pwch: u32) {
+pub unsafe fn write_pwc(pwcl: u32, pwch: u32) {
     unsafe {
         asm!(
             include_asm_macros!(),
@@ -169,4 +169,19 @@ pub fn read_thread_pointer() -> usize {
 #[inline]
 pub unsafe fn write_thread_pointer(tp: usize) {
     unsafe { asm!("move $tp, {}", in(reg) tp) }
+}
+
+/// Enables floating-point instructions by setting `EUEN.FPE`.
+///
+/// - `EUEN`: <https://loongson.github.io/LoongArch-Documentation/LoongArch-Vol1-EN.html#extended-component-unit-enable>
+#[inline]
+pub fn enable_fp() {
+    loongArch64::register::euen::set_fpe(true);
+}
+
+/// Enables LSX extension by setting `EUEN.LSX`.
+///
+/// - `EUEN`: <https://loongson.github.io/LoongArch-Documentation/LoongArch-Vol1-EN.html#extended-component-unit-enable>
+pub fn enable_lsx() {
+    loongArch64::register::euen::set_sxe(true);
 }

@@ -1,6 +1,6 @@
 [package]
 name = "axcpu"
-version = "0.1.0-pre.2"
+version = "0.1.0"
 edition = "2021"
 authors = [
     "Yuekai Jia <equation618@gmail.com>",
@@ -49,6 +49,7 @@ riscv = "0.13"
 
 [target.'cfg(target_arch = "loongarch64")'.dependencies]
 loongArch64 = "0.2.4"
+page_table_multiarch = "0.5"
 
 [lints.clippy]
 new_without_default = "allow"

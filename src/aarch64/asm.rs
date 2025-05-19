@@ -2,9 +2,8 @@
 
 use core::arch::asm;
 
-use aarch64_cpu::registers::{DAIF, TPIDR_EL0, TTBR0_EL1, TTBR1_EL1, VBAR_EL1};
+use aarch64_cpu::{asm::barrier, registers::*};
 use memory_addr::{PhysAddr, VirtAddr};
-use tock_registers::interfaces::{Readable, Writeable};
 
 /// Allows the current CPU to respond to interrupts.
 ///
@@ -147,4 +146,11 @@ pub fn read_thread_pointer() -> usize {
 #[inline]
 pub unsafe fn write_thread_pointer(tpidr_el0: usize) {
     TPIDR_EL0.set(tpidr_el0 as _)
+}
+
+/// Enable FP/SIMD instructions by setting the `FPEN` field in `CPACR_EL1`.
+#[inline]
+pub fn enable_fp() {
+    CPACR_EL1.write(CPACR_EL1::FPEN::TrapNothing);
+    barrier::isb(barrier::SY);
 }
