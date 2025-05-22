@@ -146,9 +146,12 @@ impl TaskContext {
             unsafe { crate::asm::write_thread_pointer(next_ctx.tp) };
         }
         #[cfg(feature = "uspace")]
-        if self.pgdl != next_ctx.pgdl {
-            unsafe { crate::asm::write_user_page_table(pa!(next_ctx.pgdl)) };
-            crate::asm::flush_tlb(None); // currently flush the entire TLB
+        {
+            crate::asm::write_kernel_sp(next_ctx.sp);
+            if self.pgdl != next_ctx.pgdl {
+                unsafe { crate::asm::write_user_page_table(pa!(next_ctx.pgdl)) };
+                crate::asm::flush_tlb(None); // currently flush the entire TLB
+            }
         }
         unsafe { context_switch(self, next_ctx) }
     }

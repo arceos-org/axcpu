@@ -16,8 +16,8 @@ impl UspaceContext {
     /// Creates a new context with the given entry point, user stack pointer,
     /// and the argument.
     pub fn new(entry: usize, ustack_top: VirtAddr, arg0: usize) -> Self {
-        const SPIE: usize = 1 << 5;
-        const SUM: usize = 1 << 18;
+        const SPIE: usize = 1 << 5; // enable interrupts
+        const SUM: usize = 1 << 18; // enable user memory access in supervisor mode
         Self(TrapFrame {
             regs: GeneralRegisters {
                 a0: arg0,
