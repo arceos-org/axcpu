@@ -130,8 +130,12 @@ impl TaskContext {
     ///
     /// [`init`]: TaskContext::init
     /// [`switch_to`]: TaskContext::switch_to
-    pub const fn new() -> Self {
-        unsafe { core::mem::MaybeUninit::zeroed().assume_init() }
+    pub fn new() -> Self {
+        Self {
+            #[cfg(feature = "uspace")]
+            satp: crate::asm::read_kernel_page_table(),
+            ..Default::default()
+        }
     }
 
     /// Initializes the context for a new task, with the given entry point and

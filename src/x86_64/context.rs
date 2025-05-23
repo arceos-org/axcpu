@@ -187,13 +187,13 @@ impl TaskContext {
     ///
     /// [`init`]: TaskContext::init
     /// [`switch_to`]: TaskContext::switch_to
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             kstack_top: va!(0),
             rsp: 0,
             fs_base: 0,
             #[cfg(feature = "uspace")]
-            cr3: pa!(0), // TODO
+            cr3: crate::asm::read_kernel_page_table(),
             #[cfg(feature = "fp_simd")]
             ext_state: ExtendedState::default(),
             #[cfg(feature = "uspace")]
