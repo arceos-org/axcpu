@@ -42,6 +42,11 @@ pub fn init_mmu(root_paddr: PhysAddr, phys_virt_offset: usize) {
 ///
 /// In detail, it initializes the exception vector on LoongArch64 platforms.
 pub fn init_cpu(_cpu_id: usize) {
+    #[cfg(feature = "fp_simd")]
+    loongArch64::register::euen::set_fpe(true);
+    #[cfg(feature = "fp_simd")]
+    loongArch64::register::euen::set_sxe(true);
+
     unsafe extern "C" {
         fn exception_entry_base();
     }
