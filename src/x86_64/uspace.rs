@@ -41,31 +41,6 @@ impl UspaceContext {
         Self(tf)
     }
 
-    /// Gets the instruction pointer.
-    pub const fn get_ip(&self) -> usize {
-        self.0.rip as _
-    }
-
-    /// Gets the stack pointer.
-    pub const fn get_sp(&self) -> usize {
-        self.0.rsp as _
-    }
-
-    /// Sets the instruction pointer.
-    pub const fn set_ip(&mut self, rip: usize) {
-        self.0.rip = rip as _;
-    }
-
-    /// Sets the stack pointer.
-    pub const fn set_sp(&mut self, rsp: usize) {
-        self.0.rsp = rsp as _;
-    }
-
-    /// Sets the return value register.
-    pub const fn set_retval(&mut self, rax: usize) {
-        self.0.rax = rax as _;
-    }
-
     /// Enters user space.
     ///
     /// It restores the user registers and jumps to the user entry point
@@ -104,5 +79,21 @@ impl UspaceContext {
                 options(noreturn),
             )
         }
+    }
+}
+
+#[cfg(feature = "uspace")]
+impl core::ops::Deref for UspaceContext {
+    type Target = TrapFrame;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[cfg(feature = "uspace")]
+impl core::ops::DerefMut for UspaceContext {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
