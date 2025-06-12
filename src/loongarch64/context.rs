@@ -172,16 +172,8 @@ impl TaskContext {
         #[cfg(feature = "fp_simd")]
         {
             unsafe {
-                save_fp_registers(
-                    &mut self.fp_status.fp,
-                    &mut self.fp_status.fcc,
-                    &mut self.fp_status.fcsr,
-                );
-                restore_fp_registers(
-                    &next_ctx.fp_status.fp,
-                    &next_ctx.fp_status.fcc,
-                    &next_ctx.fp_status.fcsr,
-                );
+                save_fp_registers(&mut self.fp_status);
+                restore_fp_registers(&next_ctx.fp_status);
             }
         }
         unsafe { context_switch(self, next_ctx) }
@@ -190,19 +182,11 @@ impl TaskContext {
 
 #[cfg(feature = "fp_simd")]
 #[unsafe(naked)]
-unsafe extern "C" fn save_fp_registers(
-    _fp_registers: &mut [u64; 32],
-    _fcc: &mut usize,
-    _fcsr: &mut usize,
-) {
+unsafe extern "C" fn save_fp_registers(_fp_status: &mut FpStatus) {
     naked_asm!(
-        include_fp_asm_macros!(), // $f24 - $f31
+        include_fp_asm_macros!(),
         "
-        // save old fr context (callee-saved registers)
         PUSH_FLOAT_REGS $a0
-        // save fcc and fcsr
-        SAVE_FCC $a1
-        SAVE_FCSR $a2
         ret
         "
     )
@@ -210,15 +194,11 @@ unsafe extern "C" fn save_fp_registers(
 
 #[cfg(feature = "fp_simd")]
 #[unsafe(naked)]
-unsafe extern "C" fn restore_fp_registers(_fp_registers: &[u64; 32], _fcc: &usize, _fcsr: &usize) {
+unsafe extern "C" fn restore_fp_registers(_fp_status: &FpStatus) {
     naked_asm!(
-        include_fp_asm_macros!(), // $f24 - $f31
+        include_fp_asm_macros!(),
         "
-        // restore new context
         POP_FLOAT_REGS $a0
-        // restore fcc and fcsr
-        RESTORE_FCC $a1
-        RESTORE_FCSR $a2
         ret
         "
     )
