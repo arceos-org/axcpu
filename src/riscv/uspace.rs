@@ -1,6 +1,8 @@
 //! Structures and functions for user space.
 
 use memory_addr::VirtAddr;
+#[cfg(feature = "fp_simd")]
+use riscv::register::sstatus::FS;
 
 use crate::{GeneralRegisters, TrapFrame};
 
@@ -16,9 +18,18 @@ impl UspaceContext {
     /// Creates a new context with the given entry point, user stack pointer,
     /// and the argument.
     pub fn new(entry: usize, ustack_top: VirtAddr, arg0: usize) -> Self {
-        const SPIE: usize = 1 << 5; // enable interrupts
-        const SUM: usize = 1 << 18; // enable user memory access in supervisor mode
-        const FS: usize = 1 << 13; // enable floating point unit for user space
+        const BIT_SPIE: usize = 5; // bit for enabling interrupts
+        const BIT_SUM: usize = 18; // bit for enabling user memory access in supervisor mode
+
+        let mut sstatus: usize = 0;
+        sstatus |= 1 << BIT_SPIE;
+        sstatus |= 1 << BIT_SUM;
+        #[cfg(feature = "fp_simd")]
+        {
+            const BIT_FS: usize = 13; // bit for enabling floating point unit for user space
+            sstatus |= (FS::Initial as usize) << BIT_FS;
+        }
+
         Self(TrapFrame {
             regs: GeneralRegisters {
                 a0: arg0,
@@ -26,7 +37,7 @@ impl UspaceContext {
                 ..Default::default()
             },
             sepc: entry,
-            sstatus: SPIE | SUM | FS,
+            sstatus,
         })
     }
 
