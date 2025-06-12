@@ -1,4 +1,5 @@
 use core::arch::naked_asm;
+#[cfg(feature = "fp_simd")]
 use core::mem::offset_of;
 use memory_addr::VirtAddr;
 
@@ -171,11 +172,9 @@ impl TaskContext {
             }
         }
         #[cfg(feature = "fp_simd")]
-        {
-            unsafe {
-                save_fp_registers(&mut self.fp_status);
-                restore_fp_registers(&next_ctx.fp_status);
-            }
+        unsafe {
+            save_fp_registers(&mut self.fp_status);
+            restore_fp_registers(&next_ctx.fp_status);
         }
         unsafe { context_switch(self, next_ctx) }
     }
