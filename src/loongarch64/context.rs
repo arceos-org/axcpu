@@ -40,6 +40,19 @@ pub struct GeneralRegisters {
     pub s8: usize,
 }
 
+/// Floating-point registers of LoongArch64
+#[cfg(feature = "fp_simd")]
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy)]
+pub struct FpStatus {
+    /// Floating-point registers (f0-f31)
+    pub fp: [u64; 32],
+    /// Floating-point Condition Code register
+    pub fcc: usize,
+    /// Floating-point Control and Status register
+    pub fcsr: usize,
+}
+
 /// Saved registers when a trap (interrupt or exception) occurs.
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy)]
@@ -110,6 +123,9 @@ pub struct TaskContext {
     #[cfg(feature = "uspace")]
     /// user page table root
     pub pgdl: usize,
+    #[cfg(feature = "fp_simd")]
+    /// Floating Point Status
+    pub fp_status: FpStatus,
 }
 
 impl TaskContext {
@@ -153,8 +169,59 @@ impl TaskContext {
                 crate::asm::flush_tlb(None); // currently flush the entire TLB
             }
         }
+        #[cfg(feature = "fp_simd")]
+        {
+            unsafe {
+                save_fp_registers(
+                    &mut self.fp_status.fp,
+                    &mut self.fp_status.fcc,
+                    &mut self.fp_status.fcsr,
+                );
+                restore_fp_registers(
+                    &next_ctx.fp_status.fp,
+                    &next_ctx.fp_status.fcc,
+                    &next_ctx.fp_status.fcsr,
+                );
+            }
+        }
         unsafe { context_switch(self, next_ctx) }
     }
+}
+
+#[cfg(feature = "fp_simd")]
+#[unsafe(naked)]
+unsafe extern "C" fn save_fp_registers(
+    _fp_registers: &mut [u64; 32],
+    _fcc: &mut usize,
+    _fcsr: &mut usize,
+) {
+    naked_asm!(
+        include_fp_asm_macros!(), // $f24 - $f31
+        "
+        // save old fr context (callee-saved registers)
+        PUSH_FLOAT_REGS $a0
+        // save fcc and fcsr
+        SAVE_FCC $a1
+        SAVE_FCSR $a2
+        ret
+        "
+    )
+}
+
+#[cfg(feature = "fp_simd")]
+#[unsafe(naked)]
+unsafe extern "C" fn restore_fp_registers(_fp_registers: &[u64; 32], _fcc: &usize, _fcsr: &usize) {
+    naked_asm!(
+        include_fp_asm_macros!(), // $f24 - $f31
+        "
+        // restore new context
+        POP_FLOAT_REGS $a0
+        // restore fcc and fcsr
+        RESTORE_FCC $a1
+        RESTORE_FCSR $a2
+        ret
+        "
+    )
 }
 
 #[unsafe(naked)]
