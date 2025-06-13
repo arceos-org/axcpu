@@ -191,8 +191,7 @@ unsafe extern "C" fn save_fp_registers(fp_status: &mut FpStatus) {
         SAVE_FCC $t8
         addi.d $t8, $a0, {fcsr_offset}
         SAVE_FCSR $t8
-        ret
-        ",
+        ret",
         fcc_offset = const offset_of!(FpStatus, fcc),
         fcsr_offset = const offset_of!(FpStatus, fcsr),
     )
@@ -209,8 +208,7 @@ unsafe extern "C" fn restore_fp_registers(fp_status: &FpStatus) {
         RESTORE_FCC $t8
         addi.d $t8, $a0, {fcsr_offset}
         RESTORE_FCSR $t8
-        ret
-        ",
+        ret",
         fcc_offset = const offset_of!(FpStatus, fcc),
         fcsr_offset = const offset_of!(FpStatus, fcsr),
     )
