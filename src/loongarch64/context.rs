@@ -52,7 +52,7 @@ pub struct FpStatus {
     /// Floating-point Condition Code register
     pub fcc: [u8; 8],
     /// Floating-point Control and Status register
-    pub fcsr: usize,
+    pub fcsr: u32,
 }
 
 /// Saved registers when a trap (interrupt or exception) occurs.
@@ -186,7 +186,7 @@ unsafe extern "C" fn save_fp_registers(fp_status: &mut FpStatus) {
     naked_asm!(
         include_fp_asm_macros!(),
         "
-        PUSH_FLOAT_REGS $a0
+        SAVE_FP $a0
         addi.d $t8, $a0, {fcc_offset}
         SAVE_FCC $t8
         addi.d $t8, $a0, {fcsr_offset}
@@ -203,7 +203,7 @@ unsafe extern "C" fn restore_fp_registers(fp_status: &FpStatus) {
     naked_asm!(
         include_fp_asm_macros!(),
         "
-        POP_FLOAT_REGS $a0
+        RESTORE_FP $a0
         addi.d $t8, $a0, {fcc_offset}
         RESTORE_FCC $t8
         addi.d $t8, $a0, {fcsr_offset}
