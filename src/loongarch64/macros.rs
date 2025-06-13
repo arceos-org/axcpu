@@ -170,11 +170,11 @@ macro_rules! include_fp_asm_macros {
             \op $f31, \base_reg, 31*8
         .endm
 
-        .macro PUSH_FLOAT_REGS, base_reg
+        .macro SAVE_FP, base_reg
             PUSH_POP_FLOAT_REGS fst.d, \base_reg
         .endm
 
-        .macro POP_FLOAT_REGS, base_reg
+        .macro RESTORE_FP, base_reg
             PUSH_POP_FLOAT_REGS fld.d, \base_reg
         .endm
 
