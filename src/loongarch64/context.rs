@@ -55,6 +55,18 @@ pub struct FpStatus {
     pub fcsr: u32,
 }
 
+#[cfg(feature = "fp_simd")]
+impl FpStatus {
+    #[inline]
+    pub unsafe fn save(&mut self) {
+        save_fp_registers(self);
+    }
+    #[inline]
+    pub unsafe fn restore(&self) {
+        restore_fp_registers(self);
+    }
+}
+
 /// Saved registers when a trap (interrupt or exception) occurs.
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy)]
@@ -173,8 +185,8 @@ impl TaskContext {
         }
         #[cfg(feature = "fp_simd")]
         unsafe {
-            save_fp_registers(&mut self.fp_status);
-            restore_fp_registers(&next_ctx.fp_status);
+            self.fp_status.save();
+            next_ctx.fp_status.restore();
         }
         unsafe { context_switch(self, next_ctx) }
     }
