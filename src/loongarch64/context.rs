@@ -1,4 +1,6 @@
 use core::arch::naked_asm;
+#[cfg(feature = "fp-simd")]
+use core::mem::offset_of;
 use memory_addr::VirtAddr;
 
 /// General registers of Loongarch64.
@@ -38,6 +40,30 @@ pub struct GeneralRegisters {
     pub s6: usize,
     pub s7: usize,
     pub s8: usize,
+}
+
+/// Floating-point registers of LoongArch64
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy)]
+pub struct FpuState {
+    /// Floating-point registers (f0-f31)
+    pub fp: [u64; 32],
+    /// Floating-point Condition Code register
+    pub fcc: [u8; 8],
+    /// Floating-point Control and Status register
+    pub fcsr: u32,
+}
+
+#[cfg(feature = "fp-simd")]
+impl FpuState {
+    #[inline]
+    pub unsafe fn save(&mut self) {
+        save_fp_registers(self);
+    }
+    #[inline]
+    pub unsafe fn restore(&self) {
+        restore_fp_registers(self);
+    }
 }
 
 /// Saved registers when a trap (interrupt or exception) occurs.
@@ -110,6 +136,9 @@ pub struct TaskContext {
     #[cfg(feature = "uspace")]
     /// user page table root
     pub pgdl: usize,
+    #[cfg(feature = "fp-simd")]
+    /// Floating Point Unit states
+    pub fpu: FpuState,
 }
 
 impl TaskContext {
@@ -153,8 +182,47 @@ impl TaskContext {
                 crate::asm::flush_tlb(None); // currently flush the entire TLB
             }
         }
+        #[cfg(feature = "fp-simd")]
+        unsafe {
+            self.fpu.save();
+            next_ctx.fpu.restore();
+        }
         unsafe { context_switch(self, next_ctx) }
     }
+}
+
+#[cfg(feature = "fp-simd")]
+#[unsafe(naked)]
+unsafe extern "C" fn save_fp_registers(fpu: &mut FpuState) {
+    naked_asm!(
+        include_fp_asm_macros!(),
+        "
+        SAVE_FP $a0
+        addi.d $t8, $a0, {fcc_offset}
+        SAVE_FCC $t8
+        addi.d $t8, $a0, {fcsr_offset}
+        SAVE_FCSR $t8
+        ret",
+        fcc_offset = const offset_of!(FpuState, fcc),
+        fcsr_offset = const offset_of!(FpuState, fcsr),
+    )
+}
+
+#[cfg(feature = "fp-simd")]
+#[unsafe(naked)]
+unsafe extern "C" fn restore_fp_registers(fpu: &FpuState) {
+    naked_asm!(
+        include_fp_asm_macros!(),
+        "
+        RESTORE_FP $a0
+        addi.d $t8, $a0, {fcc_offset}
+        RESTORE_FCC $t8
+        addi.d $t8, $a0, {fcsr_offset}
+        RESTORE_FCSR $t8
+        ret",
+        fcc_offset = const offset_of!(FpuState, fcc),
+        fcsr_offset = const offset_of!(FpuState, fcsr),
+    )
 }
 
 #[unsafe(naked)]
