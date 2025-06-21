@@ -31,10 +31,12 @@
     csrw    sscratch, t0
 .endif
 
+    // restore sepc
     LDR     t0, sp, 31
-    LDR     t1, sp, 32
     csrw    sepc, t0
-    csrw    sstatus, t1
+    // restore sstatus
+    LDR     t0, sp, 32
+    csrw    sstatus, t0
 
     POP_GENERAL_REGS
     LDR     sp, sp, 1                   // load sp from tf.regs.sp
