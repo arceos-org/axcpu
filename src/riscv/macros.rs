@@ -34,7 +34,7 @@ macro_rules! __asm_macros {
     };
 }
 
-#[cfg(feature = "fp_simd")]
+#[cfg(feature = "fp-simd")]
 macro_rules! include_fp_asm_macros {
     () => {
         concat!(

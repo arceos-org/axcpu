@@ -1,6 +1,6 @@
 use core::arch::naked_asm;
 use memory_addr::VirtAddr;
-#[cfg(feature = "fp_simd")]
+#[cfg(feature = "fp-simd")]
 use riscv::register::sstatus::FS;
 
 /// General registers of RISC-V.
@@ -42,7 +42,7 @@ pub struct GeneralRegisters {
 }
 
 /// Floating-point registers of RISC-V.
-#[cfg(feature = "fp_simd")]
+#[cfg(feature = "fp-simd")]
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct FpStatus {
@@ -52,7 +52,7 @@ pub struct FpStatus {
     pub fs: FS,
 }
 
-#[cfg(feature = "fp_simd")]
+#[cfg(feature = "fp-simd")]
 impl Default for FpStatus {
     fn default() -> Self {
         Self {
@@ -143,7 +143,7 @@ pub struct TaskContext {
     /// The `satp` register value, i.e., the page table root.
     #[cfg(feature = "uspace")]
     pub satp: memory_addr::PhysAddr,
-    #[cfg(feature = "fp_simd")]
+    #[cfg(feature = "fp-simd")]
     pub fp_status: FpStatus,
 }
 
@@ -159,7 +159,7 @@ impl TaskContext {
         Self {
             #[cfg(feature = "uspace")]
             satp: crate::asm::read_kernel_page_table(),
-            #[cfg(feature = "fp_simd")]
+            #[cfg(feature = "fp-simd")]
             fp_status: FpStatus {
                 fs: FS::Initial,
                 ..Default::default()
@@ -200,7 +200,7 @@ impl TaskContext {
             unsafe { crate::asm::write_user_page_table(next_ctx.satp) };
             crate::asm::flush_tlb(None); // currently flush the entire TLB
         }
-        #[cfg(feature = "fp_simd")]
+        #[cfg(feature = "fp-simd")]
         {
             use riscv::register::sstatus;
             use riscv::register::sstatus::FS;
@@ -241,7 +241,7 @@ impl TaskContext {
     }
 }
 
-#[cfg(feature = "fp_simd")]
+#[cfg(feature = "fp-simd")]
 #[unsafe(naked)]
 unsafe extern "C" fn save_fp_registers(_fp_registers: &mut [u64; 32]) {
     naked_asm!(
@@ -254,7 +254,7 @@ unsafe extern "C" fn save_fp_registers(_fp_registers: &mut [u64; 32]) {
     )
 }
 
-#[cfg(feature = "fp_simd")]
+#[cfg(feature = "fp-simd")]
 #[unsafe(naked)]
 unsafe extern "C" fn restore_fp_registers(_fp_registers: &[u64; 32]) {
     naked_asm!(
@@ -267,7 +267,7 @@ unsafe extern "C" fn restore_fp_registers(_fp_registers: &[u64; 32]) {
     )
 }
 
-#[cfg(feature = "fp_simd")]
+#[cfg(feature = "fp-simd")]
 #[unsafe(naked)]
 unsafe extern "C" fn clear_fp_registers() {
     naked_asm!(

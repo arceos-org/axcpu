@@ -1,7 +1,7 @@
 //! Structures and functions for user space.
 
 use memory_addr::VirtAddr;
-#[cfg(feature = "fp_simd")]
+#[cfg(feature = "fp-simd")]
 use riscv::register::sstatus::FS;
 
 use crate::{GeneralRegisters, TrapFrame};
@@ -24,7 +24,7 @@ impl UspaceContext {
         let mut sstatus: usize = 0;
         sstatus |= 1 << BIT_SPIE;
         sstatus |= 1 << BIT_SUM;
-        #[cfg(feature = "fp_simd")]
+        #[cfg(feature = "fp-simd")]
         {
             const BIT_FS: usize = 13; // bit for enabling floating point unit for user space
             sstatus |= (FS::Initial as usize) << BIT_FS;
