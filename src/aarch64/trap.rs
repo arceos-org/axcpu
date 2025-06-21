@@ -95,6 +95,9 @@ fn handle_data_abort(tf: &TrapFrame, iss: u64, is_user: bool) {
 fn handle_sync_exception(tf: &mut TrapFrame) {
     let esr = ESR_EL1.extract();
     let iss = esr.read(ESR_EL1::ISS);
+
+    unmask_irqs(tf);
+
     match esr.read_as_enum(ESR_EL1::EC) {
         #[cfg(feature = "uspace")]
         Some(ESR_EL1::EC::Value::SVC64) => {
@@ -118,4 +121,27 @@ fn handle_sync_exception(tf: &mut TrapFrame) {
             );
         }
     }
+    mask_irqs();
+}
+
+// Interrupt unmasking function for exception handling.
+// NOTE: It must be invoked after the switch to kernel mode has finished
+//
+// If interrupts were enabled before the exception (`I` bit in `SPSR` is unmask),
+// re-enable interrupts before handling the exception.
+//
+// On aarch64, when an exception occurs, the `CPSR` register value is stored in
+// `SPSR_EL1`, where the `I` bit records whether the interrupt is enabled or not.
+// `I::unmask` enable_irqs
+fn unmask_irqs(tf: &TrapFrame) {
+    const I_MASK: u64 = 1 << 7;
+    if tf.spsr & I_MASK != I_MASK {
+        crate::asm::enable_irqs();
+    } else {
+        debug!("Interrupts were disabled before exception");
+    }
+}
+
+fn mask_irqs() {
+    crate::asm::disable_irqs();
 }
