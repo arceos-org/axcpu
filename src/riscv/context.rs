@@ -250,8 +250,7 @@ unsafe extern "C" fn save_fp_registers(_fp_registers: &mut [u64; 32]) {
         PUSH_FLOAT_REGS a0
         frcsr t0
         STR t0, a0, 32
-        ret
-        "
+        ret"
     )
 }
 
@@ -264,8 +263,7 @@ unsafe extern "C" fn restore_fp_registers(_fp_registers: &[u64; 32]) {
         POP_FLOAT_REGS a0
         LDR t0, a0, 32
         fscsr x0, t0
-        ret
-        "
+        ret"
     )
 }
 
@@ -276,8 +274,7 @@ unsafe extern "C" fn clear_fp_registers() {
         include_fp_asm_macros!(),
         "
         CLEAR_FLOAT_REGS
-        ret
-        "
+        ret"
     )
 }
 
