@@ -16,7 +16,11 @@ core::arch::global_asm!(
 
 #[unsafe(no_mangle)]
 pub(super) fn x86_syscall_handler(tf: &mut TrapFrame) {
+    #[cfg(target_os = "none")]
+    super::trap::unmask_irqs(tf);
     tf.rax = crate::trap::handle_syscall(tf, tf.rax as usize) as u64;
+    #[cfg(target_os = "none")]
+    super::trap::mask_irqs();
 }
 
 /// Initializes syscall support and setups the syscall handler.
