@@ -97,9 +97,12 @@ pub unsafe fn write_user_page_table(root_paddr: PhysAddr) {
 pub fn flush_tlb(vaddr: Option<VirtAddr>) {
     unsafe {
         if let Some(vaddr) = vaddr {
-            asm!("tlbi vaae1is, {}; dsb sy; isb", in(reg) vaddr.as_usize())
+            // TLB Invalidate by VA, All ASID, EL1, Inner Shareable
+            const VA_MASK: usize = (1 << 44) - 1; // VA[55:12] => bits[43:0]
+            asm!("tlbi vaae1is, {}; dsb sy; isb", in(reg) ((vaddr.as_usize() >> 12) & VA_MASK))
         } else {
-            // flush the entire TLB
+            // Flush the entire TLB:
+            // TLB Invalidate by VMID, All at stage 1, EL1
             asm!("tlbi vmalle1; dsb sy; isb")
         }
     }
