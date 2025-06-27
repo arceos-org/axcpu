@@ -45,15 +45,26 @@ pub fn halt() {
 }
 
 /// Reads the current page table root register for kernel space (`TTBR1_EL1`).
+/// 
+/// When the "hv" feature is enabled,
+/// TTBR0_EL2 is dedicated to the Hypervisor's Stage-2 page table base address.
 ///
 /// Returns the physical address of the page table root.
 #[inline]
 pub fn read_kernel_page_table() -> PhysAddr {
+    #[cfg(not(feature = "hv"))]
     let root = TTBR1_EL1.get();
+
+    #[cfg(feature = "hv")]
+    let root = TTBR0_EL2.get();
+
     pa!(root as usize)
 }
 
 /// Reads the current page table root register for user space (`TTBR0_EL1`).
+/// 
+/// When the "hv" feature is enabled, for user-mode programs, 
+/// virtualization is completely transparent to them, so there is no need to modify
 ///
 /// Returns the physical address of the page table root.
 #[inline]
@@ -64,6 +75,9 @@ pub fn read_user_page_table() -> PhysAddr {
 
 /// Writes the register to update the current page table root for kernel space
 /// (`TTBR1_EL1`).
+/// 
+/// When the "hv" feature is enabled,
+/// TTBR0_EL2 is dedicated to the Hypervisor's Stage-2 page table base address.
 ///
 /// Note that the TLB is **NOT** flushed after this operation.
 ///
@@ -72,12 +86,23 @@ pub fn read_user_page_table() -> PhysAddr {
 /// This function is unsafe as it changes the virtual memory address space.
 #[inline]
 pub unsafe fn write_kernel_page_table(root_paddr: PhysAddr) {
-    // kernel space page table use TTBR1 (0xffff_0000_0000_0000..0xffff_ffff_ffff_ffff)
-    TTBR1_EL1.set(root_paddr.as_usize() as _);
+    #[cfg(not(feature = "hv"))]
+    {
+        // kernel space page table use TTBR1 (0xffff_0000_0000_0000..0xffff_ffff_ffff_ffff)
+        TTBR1_EL1.set(root_paddr.as_usize() as _);
+    }
+
+    #[cfg(feature = "hv")]
+    {
+        // kernel space page table at EL2 use TTBR0_EL2 (0x0000_0000_0000_0000..0x0000_ffff_ffff_ffff)
+        TTBR0_EL2.set(root_paddr.as_usize() as _);
+    }
 }
 
 /// Writes the register to update the current page table root for user space
 /// (`TTBR1_EL0`).
+/// When the "hv" feature is enabled, for user-mode programs, 
+/// virtualization is completely transparent to them, so there is no need to modify
 ///
 /// Note that the TLB is **NOT** flushed after this operation.
 ///
@@ -97,10 +122,24 @@ pub unsafe fn write_user_page_table(root_paddr: PhysAddr) {
 pub fn flush_tlb(vaddr: Option<VirtAddr>) {
     unsafe {
         if let Some(vaddr) = vaddr {
-            asm!("tlbi vaae1is, {}; dsb sy; isb", in(reg) vaddr.as_usize())
+            #[cfg(not(feature = "hv"))]
+            {
+                asm!("tlbi vaae1is, {}; dsb sy; isb", in(reg) vaddr.as_usize())
+            }
+            #[cfg(feature = "hv")]
+            {
+                asm!("tlbi vae2is, {}; dsb sy; isb", in(reg) vaddr.as_usize())
+            }
         } else {
             // flush the entire TLB
-            asm!("tlbi vmalle1; dsb sy; isb")
+            #[cfg(not(feature = "hv"))]
+            {
+                asm!("tlbi vmalle1; dsb sy; isb")
+            }
+            #[cfg(feature = "hv")]
+            {
+                asm!("tlbi alle2is; dsb sy; isb")
+            }
         }
     }
 }
@@ -124,8 +163,11 @@ pub fn flush_dcache_line(vaddr: VirtAddr) {
 /// This function is unsafe as it changes the exception handling behavior of the
 /// current CPU.
 #[inline]
-pub unsafe fn write_exception_vector_base(vbar_el1: usize) {
-    VBAR_EL1.set(vbar_el1 as _);
+pub unsafe fn write_exception_vector_base(vbar: usize) {
+    #[cfg(not(feature = "hv"))]
+    VBAR_EL1.set(vbar as _);
+    #[cfg(feature = "hv")]
+    VBAR_EL2.set(vbar as _);
 }
 
 /// Reads the thread pointer of the current CPU (`TPIDR_EL0`).
