@@ -1,6 +1,5 @@
 use core::arch::naked_asm;
 use memory_addr::VirtAddr;
-#[cfg(feature = "fp-simd")]
 use riscv::register::sstatus::{self, FS};
 
 /// General registers of RISC-V.
