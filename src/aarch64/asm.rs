@@ -45,7 +45,7 @@ pub fn halt() {
 }
 
 /// Reads the current page table root register for kernel space (`TTBR1_EL1`).
-/// 
+///
 /// When the "hv" feature is enabled,
 /// TTBR0_EL2 is dedicated to the Hypervisor's Stage-2 page table base address.
 ///
@@ -62,8 +62,8 @@ pub fn read_kernel_page_table() -> PhysAddr {
 }
 
 /// Reads the current page table root register for user space (`TTBR0_EL1`).
-/// 
-/// When the "hv" feature is enabled, for user-mode programs, 
+///
+/// When the "hv" feature is enabled, for user-mode programs,
 /// virtualization is completely transparent to them, so there is no need to modify
 ///
 /// Returns the physical address of the page table root.
@@ -75,7 +75,7 @@ pub fn read_user_page_table() -> PhysAddr {
 
 /// Writes the register to update the current page table root for kernel space
 /// (`TTBR1_EL1`).
-/// 
+///
 /// When the "hv" feature is enabled,
 /// TTBR0_EL2 is dedicated to the Hypervisor's Stage-2 page table base address.
 ///
@@ -101,7 +101,7 @@ pub unsafe fn write_kernel_page_table(root_paddr: PhysAddr) {
 
 /// Writes the register to update the current page table root for user space
 /// (`TTBR1_EL0`).
-/// When the "hv" feature is enabled, for user-mode programs, 
+/// When the "hv" feature is enabled, for user-mode programs,
 /// virtualization is completely transparent to them, so there is no need to modify
 ///
 /// Note that the TLB is **NOT** flushed after this operation.
