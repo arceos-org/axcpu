@@ -2,7 +2,7 @@
 
 use memory_addr::VirtAddr;
 #[cfg(feature = "fp-simd")]
-use riscv::register::sstatus::FS;
+use riscv::register::sstatus::{self, FS};
 
 use crate::{GeneralRegisters, TrapFrame};
 
@@ -37,7 +37,7 @@ impl UspaceContext {
                 ..Default::default()
             },
             sepc: entry,
-            sstatus,
+            sstatus: sstatus::Sstatus::from_bits(sstatus),
         })
     }
 

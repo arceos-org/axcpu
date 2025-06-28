@@ -71,8 +71,6 @@ fn riscv_trap_handler(tf: &mut TrapFrame, from_user: bool) {
 
     // Update tf.sstatus to preserve current hardware FS state
     // This replaces the assembly-level FS handling workaround
-    let current_sstatus = sstatus::read().bits();
-    const FS_MASK: usize = 0x6000; // FS field mask (bits 13-14)
-    let current_fs = current_sstatus & FS_MASK;
-    tf.sstatus = (tf.sstatus & !FS_MASK) | current_fs;
+    #[cfg(feature = "fp-simd")]
+    tf.sstatus.set_fs(sstatus::read().fs());
 }

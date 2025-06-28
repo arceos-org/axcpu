@@ -1,7 +1,7 @@
 use core::arch::naked_asm;
 use memory_addr::VirtAddr;
 #[cfg(feature = "fp-simd")]
-use riscv::register::sstatus::FS;
+use riscv::register::sstatus::{self, FS};
 
 /// General registers of RISC-V.
 #[allow(missing_docs)]
@@ -42,7 +42,6 @@ pub struct GeneralRegisters {
 }
 
 /// Floating-point registers of RISC-V.
-#[cfg(feature = "fp-simd")]
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct FpState {
@@ -65,32 +64,86 @@ impl Default for FpState {
 
 #[cfg(feature = "fp-simd")]
 impl FpState {
+    /// Restores the floating-point registers from this FP state
     #[inline]
-    pub unsafe fn restore(&self) {
-        restore_fp_registers(&self.fp);
+    pub fn restore(&self) {
+        unsafe {
+            restore_fp_registers(self);
+        }
     }
 
+    /// Saves the current floating-point registers to this FP state
     #[inline]
-    pub unsafe fn save(&mut self) {
-        save_fp_registers(&mut self.fp);
+    pub fn save(&mut self) {
+        unsafe {
+            save_fp_registers(self);
+        }
     }
 
+    /// Clears all floating-point registers to zero
     #[inline]
-    pub unsafe fn clear() {
-        clear_fp_registers();
+    pub fn clear() {
+        unsafe {
+            clear_fp_registers();
+        }
+    }
+
+    /// Handles floating-point state context switching
+    ///
+    /// Saves the current task's FP state (if needed) and restores the next task's FP state
+    pub fn switch_to(&mut self, next_fp_state: &FpState) {
+        // get the real FP state of the current task
+        let current_fs = sstatus::read().fs();
+        // save the current task's FP state
+        if current_fs == FS::Dirty {
+            // we need to save the current task's FP state
+            self.save();
+            // after saving, we set the FP state to clean
+            self.fs = FS::Clean;
+            unsafe {
+                sstatus::set_fs(FS::Clean);
+            }
+        }
+        // restore the next task's FP state
+        match next_fp_state.fs {
+            FS::Clean => {
+                // the next task's FP state is clean, we should restore it
+                next_fp_state.restore();
+                // after restoring, we set the FP state
+                unsafe {
+                    sstatus::set_fs(FS::Clean);
+                }
+            }
+            FS::Initial => {
+                // restore the FP state as constant values(all 0)
+                FpState::clear();
+                // we set the FP state to initial
+                unsafe {
+                    sstatus::set_fs(FS::Initial);
+                }
+            }
+            FS::Dirty => {
+                // should not happen, since we set FS to Clean after saving
+                unsafe {
+                    sstatus::set_fs(FS::Off);
+                }
+                unreachable!("FP state of the next task should not be dirty");
+            }
+            _ => {}
+        }
     }
 }
 
 /// Saved registers when a trap (interrupt or exception) occurs.
 #[repr(C)]
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct TrapFrame {
     /// All general registers.
     pub regs: GeneralRegisters,
     /// Supervisor Exception Program Counter.
     pub sepc: usize,
     /// Supervisor Status Register.
-    pub sstatus: usize,
+    pub sstatus: sstatus::Sstatus,
 }
 
 impl TrapFrame {
@@ -177,11 +230,6 @@ impl TaskContext {
         Self {
             #[cfg(feature = "uspace")]
             satp: crate::asm::read_kernel_page_table(),
-            #[cfg(feature = "fp-simd")]
-            fp_state: FpState {
-                fs: FS::Initial,
-                ..Default::default()
-            },
             ..Default::default()
         }
     }
@@ -220,39 +268,7 @@ impl TaskContext {
         }
         #[cfg(feature = "fp-simd")]
         {
-            use riscv::register::sstatus;
-            use riscv::register::sstatus::FS;
-            // get the real FP state of the current task
-            let current_fs = sstatus::read().fs();
-            // save the current task's FP state
-            if current_fs == FS::Dirty {
-                // we need to save the current task's FP state
-                unsafe {
-                    self.fp_state.save();
-                }
-                // after saving, we set the FP state to clean
-                self.fp_state.fs = FS::Clean;
-            }
-            // restore the next task's FP state
-            match next_ctx.fp_state.fs {
-                FS::Clean => unsafe {
-                    // the next task's FP state is clean, we should restore it
-                    next_ctx.fp_state.restore();
-                    // after restoring, we set the FP state
-                    sstatus::set_fs(FS::Clean);
-                },
-                FS::Initial => unsafe {
-                    // restore the FP state as constant values(all 0)
-                    FpState::clear();
-                    // we set the FP state to initial
-                    sstatus::set_fs(FS::Initial);
-                },
-                FS::Dirty => {
-                    // should not happen, since we set FS to Clean after saving
-                    unreachable!("FP state of the next task should not be dirty");
-                }
-                _ => {}
-            }
+            self.fp_state.switch_to(&next_ctx.fp_state);
         }
 
         unsafe { context_switch(self, next_ctx) }
@@ -261,7 +277,7 @@ impl TaskContext {
 
 #[cfg(feature = "fp-simd")]
 #[unsafe(naked)]
-unsafe extern "C" fn save_fp_registers(_fp_registers: &mut [u64; 32]) {
+unsafe extern "C" fn save_fp_registers(_fp_state: &mut FpState) {
     naked_asm!(
         include_fp_asm_macros!(),
         "
@@ -274,7 +290,7 @@ unsafe extern "C" fn save_fp_registers(_fp_registers: &mut [u64; 32]) {
 
 #[cfg(feature = "fp-simd")]
 #[unsafe(naked)]
-unsafe extern "C" fn restore_fp_registers(_fp_registers: &[u64; 32]) {
+unsafe extern "C" fn restore_fp_registers(_fp_state: &FpState) {
     naked_asm!(
         include_fp_asm_macros!(),
         "

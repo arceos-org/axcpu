@@ -31,12 +31,10 @@
     csrw    sscratch, t0
 .endif
 
-    // restore sepc
     LDR     t0, sp, 31
-    csrw    sepc, t0
-    // restore sstatus (FS state already handled in trap handler)
-    LDR     t0, sp, 32
-    csrw    sstatus, t0
+    LDR     t1, sp, 32
+    csrw    sepc, t0                    // restore sepc
+    csrw    sstatus, t1                 // restore sstatus, except FS state (already handled in trap handler)
 
     POP_GENERAL_REGS
     LDR     sp, sp, 1                   // load sp from tf.regs.sp
