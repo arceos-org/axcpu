@@ -65,25 +65,19 @@ impl FpState {
     /// Restores the floating-point registers from this FP state
     #[inline]
     pub fn restore(&self) {
-        unsafe {
-            restore_fp_registers(self);
-        }
+        unsafe { restore_fp_registers(self) }
     }
 
     /// Saves the current floating-point registers to this FP state
     #[inline]
     pub fn save(&mut self) {
-        unsafe {
-            save_fp_registers(self);
-        }
+        unsafe { save_fp_registers(self) }
     }
 
     /// Clears all floating-point registers to zero
     #[inline]
     pub fn clear() {
-        unsafe {
-            clear_fp_registers();
-        }
+        unsafe { clear_fp_registers() }
     }
 
     /// Handles floating-point state context switching
@@ -101,28 +95,12 @@ impl FpState {
         }
         // restore the next task's FP state
         match next_fp_state.fs {
-            FS::Clean => {
-                // the next task's FP state is clean, we should restore it
-                next_fp_state.restore();
-                // after restoring, we set the FP state
-                unsafe {
-                    sstatus::set_fs(FS::Clean);
-                }
-            }
-            FS::Initial => {
-                // restore the FP state as constant values(all 0)
-                FpState::clear();
-                // we set the FP state to initial
-                unsafe {
-                    sstatus::set_fs(FS::Initial);
-                }
-            }
-            FS::Dirty => {
-                // should not happen, since we set FS to Clean after saving
-                unreachable!("FP state of the next task should not be dirty");
-            }
-            _ => unsafe { sstatus::set_fs(FS::Off) },
+            FS::Clean => next_fp_state.restore(), // the next task's FP state is clean, we should restore it
+            FS::Initial => FpState::clear(),      // restore the FP state as constant values(all 0)
+            FS::Off => {}                         // do nothing
+            FS::Dirty => unreachable!("FP state of the next task should not be dirty"),
         }
+        unsafe { sstatus::set_fs(next_fp_state.fs) }; // set the FP state to the next task's FP state
     }
 }
 
@@ -279,7 +257,7 @@ impl TaskContext {
 
 #[cfg(feature = "fp-simd")]
 #[unsafe(naked)]
-unsafe extern "C" fn save_fp_registers(_fp_state: &mut FpState) {
+unsafe extern "C" fn save_fp_registers(fp_state: &mut FpState) {
     naked_asm!(
         include_fp_asm_macros!(),
         "
@@ -292,7 +270,7 @@ unsafe extern "C" fn save_fp_registers(_fp_state: &mut FpState) {
 
 #[cfg(feature = "fp-simd")]
 #[unsafe(naked)]
-unsafe extern "C" fn restore_fp_registers(_fp_state: &FpState) {
+unsafe extern "C" fn restore_fp_registers(fp_state: &FpState) {
     naked_asm!(
         include_fp_asm_macros!(),
         "

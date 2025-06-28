@@ -19,11 +19,11 @@ impl UspaceContext {
     /// and the argument.
     pub fn new(entry: usize, ustack_top: VirtAddr, arg0: usize) -> Self {
         let mut sstatus = sstatus::Sstatus::from_bits(0);
-        sstatus.set_spie(true);
-        sstatus.set_sum(true);
+        sstatus.set_spie(true); // enable interrupts
+        sstatus.set_sum(true); // enable user memory access in supervisor mode
         #[cfg(feature = "fp-simd")]
         {
-            sstatus.set_fs(FS::Initial);
+            sstatus.set_fs(FS::Initial); // set the FPU to initial state
         }
 
         Self(TrapFrame {
