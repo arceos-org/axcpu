@@ -140,9 +140,6 @@ pub struct TaskContext {
     pub s11: usize,
 
     pub tp: usize,
-    /// The kernel stack top address, used to calculate TrapFrame location
-    #[cfg(feature = "uspace")]
-    pub kernel_stack_top: usize,
     /// The `satp` register value, i.e., the page table root.
     #[cfg(feature = "uspace")]
     pub satp: memory_addr::PhysAddr,
@@ -161,8 +158,6 @@ impl TaskContext {
     pub fn new() -> Self {
         Self {
             #[cfg(feature = "uspace")]
-            kernel_stack_top: 0,
-            #[cfg(feature = "uspace")]
             satp: crate::asm::read_kernel_page_table(),
             #[cfg(feature = "fp-simd")]
             fp_status: FpStatus {
@@ -179,12 +174,6 @@ impl TaskContext {
         self.sp = kstack_top.as_usize();
         self.ra = entry;
         self.tp = tls_area.as_usize();
-
-        // Save kernel stack top for TrapFrame location calculation
-        #[cfg(feature = "uspace")]
-        {
-            self.kernel_stack_top = kstack_top.as_usize();
-        }
     }
 
     /// Changes the page table root in this context.
@@ -194,27 +183,6 @@ impl TaskContext {
     #[cfg(feature = "uspace")]
     pub fn set_page_table_root(&mut self, satp: memory_addr::PhysAddr) {
         self.satp = satp;
-    }
-
-    /// Gets the TrapFrame for this task by calculating from kernel stack top.
-    ///
-    /// This allows us to modify the TrapFrame's sstatus directly during task switching,
-    /// enabling unified FS state management.
-    #[cfg(feature = "uspace")]
-    unsafe fn get_trapframe_mut(&mut self) -> Option<&mut TrapFrame> {
-        if self.kernel_stack_top != 0 {
-            // TrapFrame is located at: kernel_stack_top - sizeof(TrapFrame)
-            let trapframe_addr = self.kernel_stack_top - core::mem::size_of::<TrapFrame>();
-            Some(&mut *(trapframe_addr as *mut TrapFrame))
-        } else {
-            None // Kernel tasks don't have TrapFrame
-        }
-    }
-
-    /// Gets the kernel stack top address
-    #[cfg(feature = "uspace")]
-    pub fn get_kernel_stack_top(&self) -> usize {
-        self.kernel_stack_top
     }
 
     /// Switches to another task.
@@ -246,14 +214,6 @@ impl TaskContext {
                 }
                 // after saving, we set the FP state to clean
                 self.fp_status.fs = FS::Clean;
-
-                // Synchronize TrapFrame's FS state
-                #[cfg(feature = "uspace")]
-                if let Some(trapframe) = unsafe { self.get_trapframe_mut() } {
-                    // Clear FS bits and set to Clean
-                    trapframe.sstatus &= !(0x6000); // Clear FS bits (bit 13-14)
-                    trapframe.sstatus |= (FS::Clean as usize) << 13; // Set FS=Clean
-                }
             }
             // restore the next task's FP state
             match next_ctx.fp_status.fs {
