@@ -145,6 +145,16 @@ pub struct TrapFrame {
     pub sstatus: sstatus::Sstatus,
 }
 
+impl Default for TrapFrame {
+    fn default() -> Self {
+        Self {
+            regs: GeneralRegisters::default(),
+            sepc: 0,
+            sstatus: sstatus::Sstatus::from_bits(0),
+        }
+    }
+}
+
 impl TrapFrame {
     /// Gets the 0th syscall argument.
     pub const fn arg0(&self) -> usize {
