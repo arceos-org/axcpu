@@ -45,7 +45,7 @@ pub struct GeneralRegisters {
 #[cfg(feature = "fp-simd")]
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-pub struct FpState {
+pub struct FpStatus {
     /// the state of the RISC-V Floating-Point Unit (FPU)
     pub fp: [u64; 32],
     pub fcsr: usize,
@@ -53,29 +53,13 @@ pub struct FpState {
 }
 
 #[cfg(feature = "fp-simd")]
-impl Default for FpState {
+impl Default for FpStatus {
     fn default() -> Self {
         Self {
             fs: FS::Initial,
             fp: [0; 32],
             fcsr: 0,
         }
-    }
-}
-
-#[cfg(feature = "fp-simd")]
-impl FpState {
-    #[inline]
-    pub unsafe fn save(&mut self) {
-        save_fp_registers(self);
-    }
-    #[inline]
-    pub unsafe fn restore(&self) {
-        restore_fp_registers(self);
-    }
-    #[inline]
-    pub unsafe fn clear(&mut self) {
-        clear_fp_registers();
     }
 }
 
@@ -163,7 +147,7 @@ pub struct TaskContext {
     #[cfg(feature = "uspace")]
     pub satp: memory_addr::PhysAddr,
     #[cfg(feature = "fp-simd")]
-    pub fp_state: FpState,
+    pub fp_status: FpStatus,
 }
 
 impl TaskContext {
@@ -177,9 +161,11 @@ impl TaskContext {
     pub fn new() -> Self {
         Self {
             #[cfg(feature = "uspace")]
+            kernel_stack_top: 0,
+            #[cfg(feature = "uspace")]
             satp: crate::asm::read_kernel_page_table(),
             #[cfg(feature = "fp-simd")]
-            fp_state: FpState {
+            fp_status: FpStatus {
                 fs: FS::Initial,
                 ..Default::default()
             },
@@ -256,10 +242,10 @@ impl TaskContext {
             if current_fs == FS::Dirty {
                 // we need to save the current task's FP state
                 unsafe {
-                    self.fp_state.save();
+                    save_fp_registers(&mut self.fp_status.fp);
                 }
                 // after saving, we set the FP state to clean
-                self.fp_state.fs = FS::Clean;
+                self.fp_status.fs = FS::Clean;
 
                 // Synchronize TrapFrame's FS state
                 #[cfg(feature = "uspace")]
@@ -270,22 +256,22 @@ impl TaskContext {
                 }
             }
             // restore the next task's FP state
-            match next_ctx.fp_state.fs {
+            match next_ctx.fp_status.fs {
                 FS::Clean => unsafe {
                     // the next task's FP state is clean, we should restore it
-                    next_ctx.fp_state.restore();
+                    restore_fp_registers(&next_ctx.fp_status.fp);
                     // after restoring, we set the FP state
                     sstatus::set_fs(FS::Clean);
                 },
                 FS::Initial => unsafe {
                     // restore the FP state as constant values(all 0)
-                    self.fp_state.clear();
+                    clear_fp_registers();
                     // we set the FP state to initial
                     sstatus::set_fs(FS::Initial);
                 },
                 FS::Dirty => {
                     // should not happen, since we set FS to Clean after saving
-                    unreachable!("FP state of the next task should not be dirty");
+                    panic!("FP state of the next task should not be dirty");
                 }
                 _ => {}
             }
