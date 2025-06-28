@@ -18,16 +18,12 @@ impl UspaceContext {
     /// Creates a new context with the given entry point, user stack pointer,
     /// and the argument.
     pub fn new(entry: usize, ustack_top: VirtAddr, arg0: usize) -> Self {
-        const BIT_SPIE: usize = 5; // bit for enabling interrupts
-        const BIT_SUM: usize = 18; // bit for enabling user memory access in supervisor mode
-
-        let mut sstatus = 0;
-        sstatus |= 1 << BIT_SPIE;
-        sstatus |= 1 << BIT_SUM;
+        let mut sstatus = sstatus::Sstatus::from_bits(0);
+        sstatus.set_spie(true);
+        sstatus.set_sum(true);
         #[cfg(feature = "fp-simd")]
         {
-            const BIT_FS: usize = 13; // bit for enabling floating point unit for user space
-            sstatus |= (FS::Initial as usize) << BIT_FS;
+            sstatus.set_fs(FS::Initial);
         }
 
         Self(TrapFrame {
@@ -37,7 +33,7 @@ impl UspaceContext {
                 ..Default::default()
             },
             sepc: entry,
-            sstatus: sstatus::Sstatus::from_bits(sstatus),
+            sstatus,
         })
     }
 

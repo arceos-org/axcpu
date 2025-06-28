@@ -50,7 +50,6 @@ pub struct FpState {
     pub fs: FS,
 }
 
-#[cfg(feature = "fp-simd")]
 impl Default for FpState {
     fn default() -> Self {
         Self {
@@ -99,9 +98,6 @@ impl FpState {
             self.save();
             // after saving, we set the FP state to clean
             self.fs = FS::Clean;
-            unsafe {
-                sstatus::set_fs(FS::Clean);
-            }
         }
         // restore the next task's FP state
         match next_fp_state.fs {
@@ -123,12 +119,9 @@ impl FpState {
             }
             FS::Dirty => {
                 // should not happen, since we set FS to Clean after saving
-                unsafe {
-                    sstatus::set_fs(FS::Off);
-                }
                 unreachable!("FP state of the next task should not be dirty");
             }
-            _ => {}
+            _ => unsafe { sstatus::set_fs(FS::Off) },
         }
     }
 }
