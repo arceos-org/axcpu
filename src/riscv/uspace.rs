@@ -21,7 +21,7 @@ impl UspaceContext {
         const BIT_SPIE: usize = 5; // bit for enabling interrupts
         const BIT_SUM: usize = 18; // bit for enabling user memory access in supervisor mode
 
-        let mut sstatus: usize = 0;
+        let mut sstatus = 0;
         sstatus |= 1 << BIT_SPIE;
         sstatus |= 1 << BIT_SUM;
         #[cfg(feature = "fp-simd")]
