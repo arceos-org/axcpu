@@ -119,31 +119,34 @@ pub unsafe fn write_user_page_table(root_paddr: PhysAddr) {
 /// If `vaddr` is [`None`], flushes the entire TLB. Otherwise, flushes the TLB
 /// entry that maps the given virtual address.
 ///
-/// Moreover, The reason for shifting vaddr right by 12 bits here is to clear 
+/// Moreover, The reason for shifting vaddr right by 12 bits here is to clear
 /// the address offset of the current position and obtain the aligned page number.
 ///
 /// Other functions do not use page numbers(no need to shift right by 12 bits)?
 ///
-/// ​Cache refresh: Data cache is in cache lines, and the full address is required 
+/// ​Cache refresh: Data cache is in cache lines, and the full address is required
 /// to locate a specific cache line, not the page number.
 ///
-/// Page table register write: When directly operating the TTBRx_ELx register, 
-/// the physical address of the page table base address is required, and no virtual 
+/// Page table register write: When directly operating the TTBRx_ELx register,
+/// the physical address of the page table base address is required, and no virtual
 /// address displacement is required.
 ///
-/// ​Exception vector table: When setting the exception handling entry, just write 
+/// ​Exception vector table: When setting the exception handling entry, just write
 /// the base address directly.
 #[inline]
 pub fn flush_tlb(vaddr: Option<VirtAddr>) {
     unsafe {
         if let Some(vaddr) = vaddr {
+            const VA_MASK: usize = (1 << 44) - 1; // 0xFFFF_FFFF_FFFF
+            let operand = (vaddr.as_usize() >> 12) & VA_MASK;
+
             #[cfg(not(feature = "arm-el2"))]
             {
-                asm!("tlbi vaae1is, {}; dsb sy; isb", in(reg) vaddr.vaddr >> 12)
+                asm!("tlbi vaae1is, {}; dsb sy; isb", in(reg) operand)
             }
             #[cfg(feature = "arm-el2")]
             {
-                asm!("tlbi vae2is, {}; dsb sy; isb", in(reg) vaddr.vaddr >> 12)
+                asm!("tlbi vae2is, {}; dsb sy; isb", in(reg) operand)
             }
         } else {
             // flush the entire TLB
