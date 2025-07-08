@@ -22,9 +22,9 @@ pub(super) fn handle_syscall(tf: &mut TrapFrame) {
 
 #[unsafe(no_mangle)]
 fn x86_syscall_handler(tf: &mut TrapFrame) {
-    super::tls::switch_to_kernel_fs_base(tf);
+    super::uspace::switch_to_kernel_fs_base(tf);
     handle_syscall(tf);
-    super::tls::switch_to_user_fs_base(tf);
+    super::uspace::switch_to_user_fs_base(tf);
 }
 
 /// Initializes syscall support and setups the syscall handler.

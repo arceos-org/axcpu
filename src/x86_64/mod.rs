@@ -12,9 +12,6 @@ mod trap;
 mod syscall;
 
 #[cfg(feature = "uspace")]
-mod tls;
-
-#[cfg(feature = "uspace")]
 pub mod uspace;
 
 pub use self::context::{ExtendedState, FxsaveArea, TaskContext, TrapFrame};

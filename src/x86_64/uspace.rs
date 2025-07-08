@@ -2,6 +2,7 @@
 
 use memory_addr::VirtAddr;
 
+use crate::asm::{read_thread_pointer, write_thread_pointer};
 use crate::TrapFrame;
 
 /// Context to enter user space.
@@ -54,7 +55,7 @@ impl UspaceContext {
     pub unsafe fn enter_uspace(&self, kstack_top: VirtAddr) -> ! {
         crate::asm::disable_irqs();
         assert_eq!(super::gdt::read_tss_rsp0(), kstack_top);
-        super::tls::switch_to_user_fs_base(&self.0);
+        switch_to_user_fs_base(&self.0);
         unsafe {
             core::arch::asm!("
                 mov     rsp, {tf}
@@ -80,6 +81,32 @@ impl UspaceContext {
                 options(noreturn),
             )
         }
+    }
+}
+
+// TLS support functions
+#[cfg(feature = "tls")]
+#[unsafe(no_mangle)]
+#[percpu::def_percpu]
+static KERNEL_FS_BASE: usize = 0;
+
+/// Switches to kernel FS base for TLS support.
+pub fn switch_to_kernel_fs_base(tf: &mut TrapFrame) {
+    if tf.is_user() {
+        tf.fs_base = read_thread_pointer() as _;
+        #[cfg(feature = "tls")]
+        unsafe {
+            write_thread_pointer(KERNEL_FS_BASE.read_current())
+        };
+    }
+}
+
+/// Switches to user FS base for TLS support.
+pub fn switch_to_user_fs_base(tf: &TrapFrame) {
+    if tf.is_user() {
+        #[cfg(feature = "tls")]
+        KERNEL_FS_BASE.write_current(read_thread_pointer());
+        unsafe { write_thread_pointer(tf.fs_base as _) };
     }
 }
 
