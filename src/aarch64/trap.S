@@ -34,8 +34,8 @@
 
 .macro RESTORE_REGS
     # backup kernel tpidr_el0
-    mrs     x1, tpidrro_el0
-    msr     tpidr_el0, x1
+    mrs     x1, tpidr_el0
+    msr     tpidrro_el0, x1
     
     ldp     x11, x12, [sp, 33 * 8]
     ldp     x9, x10, [sp, 31 * 8]
