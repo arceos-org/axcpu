@@ -71,7 +71,6 @@ impl UspaceContext {
     }
 }
 
-#[cfg(feature = "uspace")]
 impl core::ops::Deref for UspaceContext {
     type Target = TrapFrame;
 
@@ -80,7 +79,6 @@ impl core::ops::Deref for UspaceContext {
     }
 }
 
-#[cfg(feature = "uspace")]
 impl core::ops::DerefMut for UspaceContext {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0

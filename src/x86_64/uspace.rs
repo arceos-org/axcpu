@@ -86,7 +86,6 @@ impl UspaceContext {
 
 // TLS support functions
 #[cfg(feature = "tls")]
-#[unsafe(no_mangle)]
 #[percpu::def_percpu]
 static KERNEL_FS_BASE: usize = 0;
 
@@ -110,7 +109,6 @@ pub fn switch_to_user_fs_base(tf: &TrapFrame) {
     }
 }
 
-#[cfg(feature = "uspace")]
 impl core::ops::Deref for UspaceContext {
     type Target = TrapFrame;
 
@@ -119,7 +117,6 @@ impl core::ops::Deref for UspaceContext {
     }
 }
 
-#[cfg(feature = "uspace")]
 impl core::ops::DerefMut for UspaceContext {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
