@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["axcpu",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html\" title=\"trait core::fmt::Debug\">Debug</a> for <a class=\"struct\" href=\"axcpu/struct.ExtendedState.html\" title=\"struct axcpu::ExtendedState\">ExtendedState</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html\" title=\"trait core::fmt::Debug\">Debug</a> for <a class=\"struct\" href=\"axcpu/struct.FxsaveArea.html\" title=\"struct axcpu::FxsaveArea\">FxsaveArea</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html\" title=\"trait core::fmt::Debug\">Debug</a> for <a class=\"struct\" href=\"axcpu/struct.GdtStruct.html\" title=\"struct axcpu::GdtStruct\">GdtStruct</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html\" title=\"trait core::fmt::Debug\">Debug</a> for <a class=\"struct\" href=\"axcpu/struct.IdtStruct.html\" title=\"struct axcpu::IdtStruct\">IdtStruct</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html\" title=\"trait core::fmt::Debug\">Debug</a> for <a class=\"struct\" href=\"axcpu/struct.TaskContext.html\" title=\"struct axcpu::TaskContext\">TaskContext</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html\" title=\"trait core::fmt::Debug\">Debug</a> for <a class=\"struct\" href=\"axcpu/struct.TrapFrame.html\" title=\"struct axcpu::TrapFrame\">TrapFrame</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[1526]}

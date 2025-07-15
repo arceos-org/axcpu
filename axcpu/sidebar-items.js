@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["asm","init","trap","uspace"],"struct":["ExtendedState","FxsaveArea","GdtStruct","IdtStruct","TaskContext","TaskStateSegment","TrapFrame"]};

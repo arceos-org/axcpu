@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["init_gdt","init_idt","init_percpu","init_syscall","init_trap"]};
