@@ -60,6 +60,7 @@ pub unsafe fn switch_to_el1() {
 /// # Safety
 ///
 /// This function is unsafe as it changes the address translation configuration.
+#[cfg(not(feature = "arm_el2"))]
 pub unsafe fn init_mmu(root_paddr: PhysAddr) {
     use page_table_entry::aarch64::MemAttr;
 
@@ -106,4 +107,59 @@ pub fn init_trap() {
         crate::asm::write_exception_vector_base(exception_vector_base as usize);
         crate::asm::write_user_page_table(0.into());
     }
+}
+
+#[cfg(feature = "arm_el2")]
+pub unsafe fn switch_to_el2() {
+    SPSel.write(SPSel::SP::ELx);
+    let current_el = CurrentEL.read(CurrentEL::EL);
+
+    if current_el == 3 {
+        SCR_EL3.write(
+            SCR_EL3::NS::NonSecure + SCR_EL3::HCE::HvcEnabled + SCR_EL3::RW::NextELIsAarch64,
+        );
+        SPSR_EL3.write(
+            SPSR_EL3::M::EL2h
+                + SPSR_EL3::D::Masked
+                + SPSR_EL3::A::Masked
+                + SPSR_EL3::I::Masked
+                + SPSR_EL3::F::Masked,
+        );
+        ELR_EL3.set(LR.get());
+        SP_EL1.set(SP.get());
+        // This should be SP_EL2. To
+        aarch64_cpu::asm::eret();
+    }
+}
+
+#[cfg(feature = "arm_el2")]
+pub unsafe fn init_mmu_el2(root_paddr: PhysAddr) {
+    // Set EL1 to 64bit.
+    HCR_EL2.write(HCR_EL2::RW::EL1IsAarch64);
+
+    // Device-nGnRE memory
+    let attr0 = MAIR_EL2::Attr0_Device::nonGathering_nonReordering_EarlyWriteAck;
+    // Normal memory
+    let attr1 = MAIR_EL2::Attr1_Normal_Inner::WriteBack_NonTransient_ReadWriteAlloc
+        + MAIR_EL2::Attr1_Normal_Outer::WriteBack_NonTransient_ReadWriteAlloc;
+    MAIR_EL2.write(attr0 + attr1); // 0xff_04
+
+    // Enable TTBR0 and TTBR1 walks, page size = 4K, vaddr size = 48 bits, paddr size = 40 bits.
+    let tcr_flags0 = TCR_EL2::TG0::KiB_4
+        + TCR_EL2::SH0::Inner
+        + TCR_EL2::ORGN0::WriteBack_ReadAlloc_WriteAlloc_Cacheable
+        + TCR_EL2::IRGN0::WriteBack_ReadAlloc_WriteAlloc_Cacheable
+        + TCR_EL2::T0SZ.val(16);
+    TCR_EL2.write(TCR_EL2::PS::Bits_40 + tcr_flags0);
+    barrier::isb(barrier::SY);
+
+    let root_paddr = root_paddr.as_usize() as u64;
+    TTBR0_EL2.set(root_paddr);
+
+    // Flush the entire TLB
+    crate::asm::flush_tlb(None);
+
+    // Enable the MMU and turn on I-cache and D-cache
+    SCTLR_EL2.modify(SCTLR_EL2::M::Enable + SCTLR_EL2::C::Cacheable + SCTLR_EL2::I::Cacheable);
+    barrier::isb(barrier::SY);
 }
