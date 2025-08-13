@@ -1,6 +1,6 @@
 /// restore guest stack and run.
 ///
-/// Need `extern "C" fn handle_vmexit(trap_kind: TrapKind)` to handle the vmexit,
+/// need `extern "C" fn handle_vmexit(trap_kind: TrapKind)` to handle the vmexit,
 ///
 /// # Safety
 ///

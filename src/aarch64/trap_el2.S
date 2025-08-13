@@ -1,9 +1,6 @@
 .macro SAVE_REGS
-    # Curretly `sp` points to the address of `Aarch64VCpu.host_stack_top`.
     sub     sp, sp, 34 * 8
-    # Curretly `sp` points to the base address of `Aarch64VCpu.ctx`, which stores guest's `TrapFrame`.
 
-    # Save general purpose registers into `Aarch64VCpu.ctx`
     stp     x0, x1, [sp]
     stp     x2, x3, [sp, 2 * 8]
     stp     x4, x5, [sp, 4 * 8]
@@ -23,7 +20,6 @@
     mrs     x9, sp_el0
     stp     x30, x9, [sp, 30 * 8]
 
-    # Save `elr_el2` and `spsr_el2` into `Aarch64VCpu.ctx`
     mrs     x10, elr_el2
     mrs     x11, spsr_el2
     stp     x10, x11, [sp, 32 * 8]
@@ -52,9 +48,8 @@
     ldp     x4, x5, [sp, 4 * 8]
     ldp     x2, x3, [sp, 2 * 8]
     ldp     x0, x1, [sp]
-    # Curretly `sp` points to the base address of `Aarch64VCpu.ctx`
+
     add     sp, sp, 34 * 8
-     # Curretly `x0` points to the address of `Aarch64VCpu.host_stack_top`.
 .endm
 
 .macro INVALID_EXCP, kind, source
@@ -88,7 +83,6 @@
     SAVE_REGS
     mov    x0, \kind
     bl     handle_vmexit
-    # b .Lexception_return_el2 is called by `vmexit_trampoline`
 .endm
 
 .section .text
