@@ -121,10 +121,6 @@ exception_vector_base:
 
 .global __context_vm_entry
 __context_vm_entry:
-    # Curretly `x0` points to the address of `Aarch64VCpu.host_stack_top`.
-    mov     sp, x0
-    sub     sp, sp, 34 * 8
-    # Curretly `sp` points to the base address of `Aarch64VCpu.ctx`, which stores guest's `TrapFrame`.
 .Lexception_return:
     RESTORE_REGS
     eret
