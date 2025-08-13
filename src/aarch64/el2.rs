@@ -7,7 +7,5 @@
 /// This function is marked as `naked` to avoid the compiler generating a prologue/epilogue,
 #[unsafe(naked)]
 pub unsafe extern "C" fn enter_guest() -> ! {
-    core::arch::naked_asm!(
-        "b __context_vm_entry",
-    );
+    core::arch::naked_asm!("b __context_vm_entry",);
 }
