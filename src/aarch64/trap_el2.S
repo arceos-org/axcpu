@@ -85,9 +85,9 @@
 
 .macro HANDLE_LOWER, kind
 .p2align 7
-    SAVE_REGS_FROM_EL1
+    SAVE_REGS
     mov    x0, \kind
-    bl     vmexit_trampoline
+    bl     handle_vmexit
     # b .Lexception_return_el2 is called by `vmexit_trampoline`
 .endm
 
@@ -119,8 +119,8 @@ exception_vector_base:
     INVALID_EXCP 2 3
     INVALID_EXCP 3 3
 
-.global context_vm_entry
-context_vm_entry:
+.global __context_vm_entry
+__context_vm_entry:
     # Curretly `x0` points to the address of `Aarch64VCpu.host_stack_top`.
     mov     sp, x0
     sub     sp, sp, 34 * 8
