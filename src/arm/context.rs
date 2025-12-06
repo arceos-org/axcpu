@@ -1,0 +1,209 @@
+use core::arch::naked_asm;
+use core::fmt;
+use memory_addr::VirtAddr;
+
+/// Saved registers when a trap (exception) occurs.
+#[repr(C)]
+#[derive(Default, Clone, Copy)]
+pub struct TrapFrame {
+    /// General-purpose registers (R0..R12).
+    pub r: [u32; 13],
+    /// User Stack Pointer.
+    pub sp: u32,
+    /// Link Register.
+    pub lr: u32,
+    /// Program Counter (exception return address).
+    pub pc: u32,
+    /// Current Program Status Register.
+    pub cpsr: u32,
+}
+
+impl fmt::Debug for TrapFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "TrapFrame: {{")?;
+        for (i, &reg) in self.r.iter().enumerate() {
+            writeln!(f, "    r{i}: {reg:#x},")?;
+        }
+        writeln!(f, "    sp: {:#x},", self.sp)?;
+        writeln!(f, "    lr: {:#x},", self.lr)?;
+        writeln!(f, "    pc: {:#x},", self.pc)?;
+        writeln!(f, "    cpsr: {:#x},", self.cpsr)?;
+        write!(f, "}}")?;
+        Ok(())
+    }
+}
+
+impl TrapFrame {
+    /// Gets the 0th syscall argument.
+    pub const fn arg0(&self) -> usize {
+        self.r[0] as _
+    }
+
+    /// Gets the 1st syscall argument.
+    pub const fn arg1(&self) -> usize {
+        self.r[1] as _
+    }
+
+    /// Gets the 2nd syscall argument.
+    pub const fn arg2(&self) -> usize {
+        self.r[2] as _
+    }
+
+    /// Gets the 3rd syscall argument.
+    pub const fn arg3(&self) -> usize {
+        self.r[3] as _
+    }
+
+    /// Gets the 4th syscall argument.
+    pub const fn arg4(&self) -> usize {
+        self.r[4] as _
+    }
+
+    /// Gets the 5th syscall argument.
+    pub const fn arg5(&self) -> usize {
+        self.r[5] as _
+    }
+}
+
+/// FP & SIMD registers.
+#[repr(C, align(16))]
+#[derive(Debug, Default)]
+pub struct FpState {
+    /// 64-bit VFP double-precision registers (D0..D31)
+    pub regs: [u64; 32],
+    /// Floating-point Status and Control Register
+    pub fpscr: u32,
+}
+
+#[cfg(feature = "fp-simd")]
+impl FpState {
+    /// Saves the current FP/SIMD states from CPU to this structure.
+    pub fn save(&mut self) {
+        unsafe { fpstate_save(self) }
+    }
+
+    /// Restores the FP/SIMD states from this structure to CPU.
+    pub fn restore(&self) {
+        unsafe { fpstate_restore(self) }
+    }
+}
+
+/// Saved hardware states of a task.
+///
+/// The context usually includes:
+///
+/// - Callee-saved registers
+/// - Stack pointer register
+/// - FP/SIMD registers
+///
+/// On context switch, current task saves its context from CPU to memory,
+/// and the next task restores its context from memory to CPU.
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct TaskContext {
+    pub sp: u32,
+    pub r4: u32,
+    pub r5: u32,
+    pub r6: u32,
+    pub r7: u32,
+    pub r8: u32,
+    pub r9: u32,
+    pub r10: u32,
+    pub r11: u32,
+    pub lr: u32, // r14
+    #[cfg(feature = "fp-simd")]
+    pub fp_state: FpState,
+}
+
+impl TaskContext {
+    /// Creates a dummy context for a new task.
+    ///
+    /// Note the context is not initialized, it will be filled by [`switch_to`]
+    /// (for initial tasks) and [`init`] (for regular tasks) methods.
+    ///
+    /// [`init`]: TaskContext::init
+    /// [`switch_to`]: TaskContext::switch_to
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Initializes the context for a new task, with the given entry point and
+    /// kernel stack.
+    pub fn init(&mut self, entry: usize, kstack_top: VirtAddr, _tls_area: VirtAddr) {
+        self.sp = kstack_top.as_usize() as u32;
+        self.lr = entry as u32;
+    }
+
+    /// Switches to another task.
+    ///
+    /// It first saves the current task's context from CPU to this place, and then
+    /// restores the next task's context from `next_ctx` to CPU.
+    pub fn switch_to(&mut self, next_ctx: &Self) {
+        #[cfg(feature = "fp-simd")]
+        {
+            self.fp_state.save();
+            next_ctx.fp_state.restore();
+        }
+        unsafe { context_switch(self, next_ctx) }
+    }
+}
+
+#[cfg(feature = "fp-simd")]
+#[unsafe(naked)]
+unsafe extern "C" fn fpstate_save(_fp_state: &mut FpState) {
+    naked_asm!(
+        include_fp_asm_macros!(),
+        "
+        VPUSH_FP_REGS r0
+        vmrs r1, fpscr
+        str r1, [r0]
+        bx lr"
+    )
+}
+
+#[cfg(feature = "fp-simd")]
+#[unsafe(naked)]
+unsafe extern "C" fn fpstate_restore(_fp_state: &FpState) {
+    naked_asm!(
+        include_fp_asm_macros!(),
+        "
+        VPOP_FP_REGS r0
+        ldr r1, [r0]
+        vmsr fpscr, r1
+        bx lr"
+    )
+}
+
+#[unsafe(naked)]
+unsafe extern "C" fn context_switch(_current_task: &mut TaskContext, _next_task: &TaskContext) {
+    naked_asm!(
+        include_asm_macros!(),
+        "
+        // save old context (callee-saved registers)
+        STR lr, r0, 9
+        STR r11, r0, 8
+        STR r10, r0, 7
+        STR r9, r0, 6
+        STR r8, r0, 5
+        STR r7, r0, 4
+        STR r6, r0, 3
+        STR r5, r0, 2
+        STR r4, r0, 1
+        STR sp, r0, 0
+
+        // restore new context
+        LDR sp, r1, 0
+        LDR r4, r1, 1
+        LDR r5, r1, 2
+        LDR r6, r1, 3
+        LDR r7, r1, 4
+        LDR r8, r1, 5
+        LDR r9, r1, 6
+        LDR r10, r1, 7
+        LDR r11, r1, 8
+        LDR lr, r1, 9
+
+        bx lr",
+    )
+}
