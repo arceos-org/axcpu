@@ -172,3 +172,103 @@ pub fn enable_fp() {
         asm!("vmsr fpexc, {}", in(reg) 0x40000000u32);
     }
 }
+
+/// Reads the exception vector base address register (`VBAR`).
+#[inline]
+pub fn read_exception_vector_base() -> usize {
+    let vbar: u32;
+    unsafe { asm!("mrc p15, 0, {}, c12, c0, 0", out(reg) vbar) };
+    vbar as usize
+}
+
+/// Reads the Data Fault Status Register (DFSR).
+#[inline]
+pub fn read_dfsr() -> u32 {
+    let dfsr: u32;
+    unsafe { asm!("mrc p15, 0, {}, c5, c0, 0", out(reg) dfsr) };
+    dfsr
+}
+
+/// Reads the Data Fault Address Register (DFAR).
+#[inline]
+pub fn read_dfar() -> u32 {
+    let dfar: u32;
+    unsafe { asm!("mrc p15, 0, {}, c6, c0, 0", out(reg) dfar) };
+    dfar
+}
+
+/// Reads the Instruction Fault Status Register (IFSR).
+#[inline]
+pub fn read_ifsr() -> u32 {
+    let ifsr: u32;
+    unsafe { asm!("mrc p15, 0, {}, c5, c0, 1", out(reg) ifsr) };
+    ifsr
+}
+
+/// Reads the Instruction Fault Address Register (IFAR).
+#[inline]
+pub fn read_ifar() -> u32 {
+    let ifar: u32;
+    unsafe { asm!("mrc p15, 0, {}, c6, c0, 2", out(reg) ifar) };
+    ifar
+}
+
+/// Reads the System Control Register (SCTLR).
+#[inline]
+pub fn read_sctlr() -> u32 {
+    let sctlr: u32;
+    unsafe { asm!("mrc p15, 0, {}, c1, c0, 0", out(reg) sctlr) };
+    sctlr
+}
+
+/// Writes the System Control Register (SCTLR).
+///
+/// # Safety
+///
+/// This function is unsafe as it can modify critical system settings.
+#[inline]
+pub unsafe fn write_sctlr(sctlr: u32) {
+    unsafe {
+        asm!("mcr p15, 0, {}, c1, c0, 0", in(reg) sctlr);
+        asm!("dsb");
+        asm!("isb");
+    }
+}
+
+/// Reads the CPSR (Current Program Status Register).
+#[inline]
+pub fn read_cpsr() -> u32 {
+    let cpsr: u32;
+    unsafe { asm!("mrs {}, cpsr", out(reg) cpsr) };
+    cpsr
+}
+
+/// Data Synchronization Barrier.
+#[inline]
+pub fn dsb() {
+    unsafe { asm!("dsb") };
+}
+
+/// Data Memory Barrier.
+#[inline]
+pub fn dmb() {
+    unsafe { asm!("dmb") };
+}
+
+/// Instruction Synchronization Barrier.
+#[inline]
+pub fn isb() {
+    unsafe { asm!("isb") };
+}
+
+/// Send Event - wake up cores waiting in WFE.
+#[inline]
+pub fn sev() {
+    unsafe { asm!("sev") };
+}
+
+/// Wait for Event.
+#[inline]
+pub fn wfe() {
+    unsafe { asm!("wfe") };
+}
