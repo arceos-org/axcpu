@@ -1,3 +1,5 @@
+//! ARM32 (ARMv7-A) architecture-specific code.
+
 #[macro_use]
 mod macros;
 
@@ -10,3 +12,4 @@ pub mod init;
 mod trap;
 
 pub use self::context::{FpState, TaskContext, TrapFrame};
+pub use self::init::{current_mode, is_privileged, mode, cpsr};
