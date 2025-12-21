@@ -92,21 +92,30 @@ impl UserContext {
                 let far = FAR_EL1.get() as usize;
 
                 let iss = esr.read(ESR_EL1::ISS);
-                let ec = esr.read(ESR_EL1::EC);
+                let ec_enum = esr.read_as_enum(ESR_EL1::EC);
 
-                // Check for breakpoint exceptions: Brk64 (0x3C)
-                // Brk64 = 0x3C = 60 = 0b111100 (breakpoint exception)
+                // Check for breakpoint exceptions: Brk64 (0x3C) or TrappedMsrMrs (0x18)
+                // Some brk instructions may be reported as TrappedMsrMrs
                 // Skip brk instruction (4 bytes) if process is not being debugged
                 // This matches Linux behavior: brk instructions are silently ignored
-                if ec == 0x3C {
-                    self.tf.elr += 4;
-                    // Continue execution immediately by recursively calling run()
-                    // Enable interrupts before recursive call since run() will disable them
-                    crate::asm::enable_irqs();
-                    return self.run();
-                }
-
-                match esr.read_as_enum(ESR_EL1::EC) {
+                match ec_enum {
+                    Some(ESR_EL1::EC::Value::Brk64) => {
+                        self.tf.elr += 4;
+                        // Continue execution immediately by recursively calling run()
+                        // Enable interrupts before recursive call since run() will disable them
+                        crate::asm::enable_irqs();
+                        return self.run();
+                    }
+                    Some(ESR_EL1::EC::Value::TrappedMsrMrs) => {
+                        // Handle TrappedMsrMrs that might be brk instructions
+                        // Some brk instructions trigger TrappedMsrMrs instead of Brk64
+                        // Skip instruction (4 bytes) to match Linux behavior
+                        self.tf.elr += 4;
+                        // Continue execution immediately by recursively calling run()
+                        // Enable interrupts before recursive call since run() will disable them
+                        crate::asm::enable_irqs();
+                        return self.run();
+                    }
                     Some(ESR_EL1::EC::Value::SVC64) => ReturnReason::Syscall,
                     Some(ESR_EL1::EC::Value::InstrAbortLowerEL) if is_valid_page_fault(iss) => {
                         ReturnReason::PageFault(
@@ -162,12 +171,13 @@ pub struct ExceptionInfo {
 impl ExceptionInfo {
     /// Returns a generalized kind of this exception.
     pub fn kind(&self) -> ExceptionKind {
-        let ec = self.esr.read(ESR_EL1::EC);
-        // Check for breakpoint exceptions: Brk64 (0x3C)
-        if ec == 0x3C {
-            return ExceptionKind::Breakpoint;
-        }
         match self.esr.read_as_enum(ESR_EL1::EC) {
+            Some(ESR_EL1::EC::Value::Brk64) => ExceptionKind::Breakpoint,
+            Some(ESR_EL1::EC::Value::TrappedMsrMrs) => {
+                // Some brk instructions trigger TrappedMsrMrs instead of Brk64
+                // Treat as breakpoint to match Linux behavior
+                ExceptionKind::Breakpoint
+            }
             Some(ESR_EL1::EC::Value::IllegalExecutionState) => ExceptionKind::IllegalInstruction,
             Some(ESR_EL1::EC::Value::PCAlignmentFault)
             | Some(ESR_EL1::EC::Value::SPAlignmentFault) => ExceptionKind::Misaligned,
