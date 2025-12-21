@@ -92,6 +92,10 @@ impl UserContext {
                 let far = FAR_EL1.get() as usize;
 
                 let iss = esr.read(ESR_EL1::ISS);
+                let ec = esr.read(ESR_EL1::EC);
+
+                // Debug: print exception class for debugging
+                debug!("Synchronous exception: EC={:#x} ({:#08b}), ISS={:#x}, ELR={:#x}", ec, ec, iss, self.tf.elr);
 
                 match esr.read_as_enum(ESR_EL1::EC) {
                     Some(ESR_EL1::EC::Value::SVC64) => ReturnReason::Syscall,
@@ -123,7 +127,11 @@ impl UserContext {
                         crate::asm::enable_irqs();
                         return self.run();
                     }
-                    _ => ReturnReason::Exception(ExceptionInfo { esr, far }),
+                    _ => {
+                        // Debug: print unmatched exception
+                        debug!("Unmatched synchronous exception: EC={:#x} ({:#08b}), ISS={:#x}, ELR={:#x}", ec, ec, iss, self.tf.elr);
+                        ReturnReason::Exception(ExceptionInfo { esr, far })
+                    },
                 }
             }
         };
