@@ -119,7 +119,8 @@ impl UserContext {
                         debug!("BRK #{:#x} @ {:#x}, skipping instruction", iss, self.tf.elr);
                         self.tf.elr += 4;
                         // Continue execution immediately by recursively calling run()
-                        // Note: run() handles interrupt enabling/disabling internally
+                        // Enable interrupts before recursive call since run() will disable them
+                        crate::asm::enable_irqs();
                         return self.run();
                     }
                     _ => ReturnReason::Exception(ExceptionInfo { esr, far }),
