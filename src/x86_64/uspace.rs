@@ -92,12 +92,22 @@ impl UserContext {
         let vector = self.vector as u8;
 
         const PAGE_FAULT_VECTOR: u8 = ExceptionVector::Page as u8;
+        const BREAKPOINT_VECTOR: u8 = ExceptionVector::Breakpoint as u8;
 
         let ret = match vector {
             PAGE_FAULT_VECTOR if let Ok(flags) = err_code_to_flags(self.error_code) => {
                 ReturnReason::PageFault(va!(cr2), flags)
             }
             LEGACY_SYSCALL_VECTOR => ReturnReason::Syscall,
+            BREAKPOINT_VECTOR => {
+                // Skip breakpoint instruction (1 byte) if process is not being debugged
+                // This matches Linux behavior: INT3 instructions are silently ignored
+                self.rip += 1;
+                // Continue execution immediately by recursively calling run()
+                // Enable interrupts before recursive call since run() will disable them
+                crate::asm::enable_irqs();
+                return self.run();
+            }
             IRQ_VECTOR_START..=IRQ_VECTOR_END => {
                 handle_trap!(IRQ, vector as _);
                 ReturnReason::Interrupt

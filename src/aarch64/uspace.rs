@@ -94,16 +94,12 @@ impl UserContext {
                 let iss = esr.read(ESR_EL1::ISS);
                 let ec = esr.read(ESR_EL1::EC);
 
-                // Debug: print exception class for debugging
-                warn!("Synchronous exception: EC={:#x} ({:#08b}), ISS={:#x}, ELR={:#x}", ec, ec, iss, self.tf.elr);
-
                 // Check for breakpoint exceptions: Brk64 (0x3C) or BreakpointLowerEL (0x08)
                 // Brk64 = 0x3C = 60 = 0b111100 (breakpoint from current EL)
                 // BreakpointLowerEL = 0x08 = 8 = 0b001000 (breakpoint from lower EL)
+                // Skip brk instruction (4 bytes) if process is not being debugged
+                // This matches Linux behavior: brk instructions are silently ignored
                 if ec == 0x3C || ec == 0x08 {
-                    // Skip brk instruction (4 bytes) if process is not being debugged
-                    // This matches Linux behavior: brk instructions are silently ignored
-                    warn!("BRK exception (EC={:#x}) #{:#x} @ {:#x}, skipping instruction", ec, iss, self.tf.elr);
                     self.tf.elr += 4;
                     // Continue execution immediately by recursively calling run()
                     // Enable interrupts before recursive call since run() will disable them
@@ -131,11 +127,7 @@ impl UserContext {
                             } | PageFaultFlags::USER,
                         )
                     }
-                    _ => {
-                        // Debug: print unmatched exception
-                        warn!("Unmatched synchronous exception: EC={:#x} ({:#08b}), ISS={:#x}, ELR={:#x}", ec, ec, iss, self.tf.elr);
-                        ReturnReason::Exception(ExceptionInfo { esr, far })
-                    },
+                    _ => ReturnReason::Exception(ExceptionInfo { esr, far }),
                 }
             }
         };
@@ -171,8 +163,12 @@ pub struct ExceptionInfo {
 impl ExceptionInfo {
     /// Returns a generalized kind of this exception.
     pub fn kind(&self) -> ExceptionKind {
+        let ec = self.esr.read(ESR_EL1::EC);
+        // Check for breakpoint exceptions: Brk64 (0x3C) or BreakpointLowerEL (0x08)
+        if ec == 0x3C || ec == 0x08 {
+            return ExceptionKind::Breakpoint;
+        }
         match self.esr.read_as_enum(ESR_EL1::EC) {
-            Some(ESR_EL1::EC::Value::Brk64) => ExceptionKind::Breakpoint,
             Some(ESR_EL1::EC::Value::IllegalExecutionState) => ExceptionKind::IllegalInstruction,
             Some(ESR_EL1::EC::Value::PCAlignmentFault)
             | Some(ESR_EL1::EC::Value::SPAlignmentFault) => ExceptionKind::Misaligned,

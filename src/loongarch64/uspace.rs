@@ -59,6 +59,15 @@ impl UserContext {
                 self.era += 4;
                 ReturnReason::Syscall
             }
+            Trap::Exception(Exception::Breakpoint) => {
+                // Skip breakpoint instruction (4 bytes) if process is not being debugged
+                // This matches Linux behavior: breakpoint instructions are silently ignored
+                self.era += 4;
+                // Continue execution immediately by recursively calling run()
+                // Enable interrupts before recursive call since run() will disable them
+                crate::asm::enable_irqs();
+                return self.run();
+            }
             Trap::Exception(Exception::LoadPageFault)
             | Trap::Exception(Exception::PageNonReadableFault) => {
                 ReturnReason::PageFault(va!(badv), PageFaultFlags::READ | PageFaultFlags::USER)
