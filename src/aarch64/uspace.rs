@@ -97,6 +97,20 @@ impl UserContext {
                 // Debug: print exception class for debugging
                 warn!("Synchronous exception: EC={:#x} ({:#08b}), ISS={:#x}, ELR={:#x}", ec, ec, iss, self.tf.elr);
 
+                // Check for breakpoint exceptions: Brk64 (0x3C) or BreakpointLowerEL (0x08)
+                // Brk64 = 0x3C = 60 = 0b111100 (breakpoint from current EL)
+                // BreakpointLowerEL = 0x08 = 8 = 0b001000 (breakpoint from lower EL)
+                if ec == 0x3C || ec == 0x08 {
+                    // Skip brk instruction (4 bytes) if process is not being debugged
+                    // This matches Linux behavior: brk instructions are silently ignored
+                    warn!("BRK exception (EC={:#x}) #{:#x} @ {:#x}, skipping instruction", ec, iss, self.tf.elr);
+                    self.tf.elr += 4;
+                    // Continue execution immediately by recursively calling run()
+                    // Enable interrupts before recursive call since run() will disable them
+                    crate::asm::enable_irqs();
+                    return self.run();
+                }
+
                 match esr.read_as_enum(ESR_EL1::EC) {
                     Some(ESR_EL1::EC::Value::SVC64) => ReturnReason::Syscall,
                     Some(ESR_EL1::EC::Value::InstrAbortLowerEL) if is_valid_page_fault(iss) => {
@@ -116,16 +130,6 @@ impl UserContext {
                                 PageFaultFlags::READ
                             } | PageFaultFlags::USER,
                         )
-                    }
-                    Some(ESR_EL1::EC::Value::Brk64) => {
-                        // Skip brk instruction (4 bytes) if process is not being debugged
-                        // This matches Linux behavior: brk instructions are silently ignored
-                        warn!("BRK #{:#x} @ {:#x}, skipping instruction", iss, self.tf.elr);
-                        self.tf.elr += 4;
-                        // Continue execution immediately by recursively calling run()
-                        // Enable interrupts before recursive call since run() will disable them
-                        crate::asm::enable_irqs();
-                        return self.run();
                     }
                     _ => {
                         // Debug: print unmatched exception
