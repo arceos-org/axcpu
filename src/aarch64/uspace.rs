@@ -99,7 +99,10 @@ impl UserContext {
                 // BreakpointLowerEL = 0x08 = 8 = 0b001000 (breakpoint from lower EL)
                 // Skip brk instruction (4 bytes) if process is not being debugged
                 // This matches Linux behavior: brk instructions are silently ignored
+                // Debug: log all synchronous exceptions to diagnose breakpoint handling
+                warn!("[axcpu] Synchronous exception: EC={:#x} ({:#08b}), ISS={:#x}, ELR={:#x}", ec, ec, iss, self.tf.elr);
                 if ec == 0x3C || ec == 0x08 {
+                    warn!("[axcpu] Breakpoint exception detected (EC={:#x}), skipping instruction at {:#x}", ec, self.tf.elr);
                     self.tf.elr += 4;
                     // Continue execution immediately by recursively calling run()
                     // Enable interrupts before recursive call since run() will disable them
@@ -127,7 +130,10 @@ impl UserContext {
                             } | PageFaultFlags::USER,
                         )
                     }
-                    _ => ReturnReason::Exception(ExceptionInfo { esr, far }),
+                    _ => {
+                        warn!("[axcpu] Unmatched synchronous exception: EC={:#x} ({:#08b}), ISS={:#x}, ELR={:#x}", ec, ec, iss, self.tf.elr);
+                        ReturnReason::Exception(ExceptionInfo { esr, far })
+                    }
                 }
             }
         };
