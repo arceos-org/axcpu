@@ -113,7 +113,7 @@ impl UserContext {
                             } | PageFaultFlags::USER,
                         )
                     }
-                    Some(ESR_EL1::EC::Value::BreakpointLowerEL) => {
+                    Some(ESR_EL1::EC::Value::Brk64) => {
                         // Skip brk instruction (4 bytes) if process is not being debugged
                         // This matches Linux behavior: brk instructions are silently ignored
                         debug!("BRK #{:#x} @ {:#x}, skipping instruction", iss, self.tf.elr);
@@ -159,7 +159,7 @@ impl ExceptionInfo {
     /// Returns a generalized kind of this exception.
     pub fn kind(&self) -> ExceptionKind {
         match self.esr.read_as_enum(ESR_EL1::EC) {
-            Some(ESR_EL1::EC::Value::BreakpointLowerEL) => ExceptionKind::Breakpoint,
+            Some(ESR_EL1::EC::Value::Brk64) => ExceptionKind::Breakpoint,
             Some(ESR_EL1::EC::Value::IllegalExecutionState) => ExceptionKind::IllegalInstruction,
             Some(ESR_EL1::EC::Value::PCAlignmentFault)
             | Some(ESR_EL1::EC::Value::SPAlignmentFault) => ExceptionKind::Misaligned,
