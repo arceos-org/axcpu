@@ -95,7 +95,7 @@ impl UserContext {
                 let ec = esr.read(ESR_EL1::EC);
 
                 // Debug: print exception class for debugging
-                debug!("Synchronous exception: EC={:#x} ({:#08b}), ISS={:#x}, ELR={:#x}", ec, ec, iss, self.tf.elr);
+                warn!("Synchronous exception: EC={:#x} ({:#08b}), ISS={:#x}, ELR={:#x}", ec, ec, iss, self.tf.elr);
 
                 match esr.read_as_enum(ESR_EL1::EC) {
                     Some(ESR_EL1::EC::Value::SVC64) => ReturnReason::Syscall,
@@ -120,7 +120,7 @@ impl UserContext {
                     Some(ESR_EL1::EC::Value::Brk64) => {
                         // Skip brk instruction (4 bytes) if process is not being debugged
                         // This matches Linux behavior: brk instructions are silently ignored
-                        debug!("BRK #{:#x} @ {:#x}, skipping instruction", iss, self.tf.elr);
+                        warn!("BRK #{:#x} @ {:#x}, skipping instruction", iss, self.tf.elr);
                         self.tf.elr += 4;
                         // Continue execution immediately by recursively calling run()
                         // Enable interrupts before recursive call since run() will disable them
@@ -129,7 +129,7 @@ impl UserContext {
                     }
                     _ => {
                         // Debug: print unmatched exception
-                        debug!("Unmatched synchronous exception: EC={:#x} ({:#08b}), ISS={:#x}, ELR={:#x}", ec, ec, iss, self.tf.elr);
+                        warn!("Unmatched synchronous exception: EC={:#x} ({:#08b}), ISS={:#x}, ELR={:#x}", ec, ec, iss, self.tf.elr);
                         ReturnReason::Exception(ExceptionInfo { esr, far })
                     },
                 }
