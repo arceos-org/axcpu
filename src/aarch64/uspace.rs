@@ -113,6 +113,15 @@ impl UserContext {
                             } | PageFaultFlags::USER,
                         )
                     }
+                    Some(ESR_EL1::EC::Value::BreakpointLowerEL) => {
+                        // Skip brk instruction (4 bytes) if process is not being debugged
+                        // This matches Linux behavior: brk instructions are silently ignored
+                        debug!("BRK #{:#x} @ {:#x}, skipping instruction", iss, self.tf.elr);
+                        self.tf.elr += 4;
+                        // Continue execution immediately by recursively calling run()
+                        // Note: run() handles interrupt enabling/disabling internally
+                        return self.run();
+                    }
                     _ => ReturnReason::Exception(ExceptionInfo { esr, far }),
                 }
             }
