@@ -94,15 +94,11 @@ impl UserContext {
                 let iss = esr.read(ESR_EL1::ISS);
                 let ec = esr.read(ESR_EL1::EC);
 
-                // Check for breakpoint exceptions: Brk64 (0x3C) or BreakpointLowerEL (0x08)
-                // Brk64 = 0x3C = 60 = 0b111100 (breakpoint from current EL)
-                // BreakpointLowerEL = 0x08 = 8 = 0b001000 (breakpoint from lower EL)
+                // Check for breakpoint exceptions: Brk64 (0x3C)
+                // Brk64 = 0x3C = 60 = 0b111100 (breakpoint exception)
                 // Skip brk instruction (4 bytes) if process is not being debugged
                 // This matches Linux behavior: brk instructions are silently ignored
-                // Debug: log all synchronous exceptions to diagnose breakpoint handling
-                warn!("[axcpu] Synchronous exception: EC={:#x} ({:#08b}), ISS={:#x}, ELR={:#x}", ec, ec, iss, self.tf.elr);
-                if ec == 0x3C || ec == 0x08 {
-                    warn!("[axcpu] Breakpoint exception detected (EC={:#x}), skipping instruction at {:#x}", ec, self.tf.elr);
+                if ec == 0x3C {
                     self.tf.elr += 4;
                     // Continue execution immediately by recursively calling run()
                     // Enable interrupts before recursive call since run() will disable them
@@ -130,10 +126,7 @@ impl UserContext {
                             } | PageFaultFlags::USER,
                         )
                     }
-                    _ => {
-                        warn!("[axcpu] Unmatched synchronous exception: EC={:#x} ({:#08b}), ISS={:#x}, ELR={:#x}", ec, ec, iss, self.tf.elr);
-                        ReturnReason::Exception(ExceptionInfo { esr, far })
-                    }
+                    _ => ReturnReason::Exception(ExceptionInfo { esr, far }),
                 }
             }
         };
@@ -170,8 +163,8 @@ impl ExceptionInfo {
     /// Returns a generalized kind of this exception.
     pub fn kind(&self) -> ExceptionKind {
         let ec = self.esr.read(ESR_EL1::EC);
-        // Check for breakpoint exceptions: Brk64 (0x3C) or BreakpointLowerEL (0x08)
-        if ec == 0x3C || ec == 0x08 {
+        // Check for breakpoint exceptions: Brk64 (0x3C)
+        if ec == 0x3C {
             return ExceptionKind::Breakpoint;
         }
         match self.esr.read_as_enum(ESR_EL1::EC) {
