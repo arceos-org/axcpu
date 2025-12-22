@@ -78,70 +78,72 @@ impl UserContext {
             fn enter_user(uctx: &mut UserContext) -> TrapKind;
         }
 
-        crate::asm::disable_irqs();
-        let kind = unsafe { enter_user(self) };
+        loop {
+            crate::asm::disable_irqs();
+            let kind = unsafe { enter_user(self) };
 
-        let ret = match kind {
-            TrapKind::Irq => {
-                handle_trap!(IRQ, 0);
-                ReturnReason::Interrupt
-            }
-            TrapKind::Fiq | TrapKind::SError => ReturnReason::Unknown,
-            TrapKind::Synchronous => {
-                let esr = ESR_EL1.extract();
-                let far = FAR_EL1.get() as usize;
-
-                let iss = esr.read(ESR_EL1::ISS);
-                let ec_enum = esr.read_as_enum(ESR_EL1::EC);
-
-                // Check for breakpoint exceptions: Brk64 (0x3C) or TrappedMsrMrs (0x18)
-                // Some brk instructions may be reported as TrappedMsrMrs
-                // Skip brk instruction (4 bytes) if process is not being debugged
-                // This matches Linux behavior: brk instructions are silently ignored
-                match ec_enum {
-                    Some(ESR_EL1::EC::Value::Brk64) => {
-                        self.tf.elr += 4;
-                        // Continue execution immediately by recursively calling run()
-                        // Enable interrupts before recursive call since run() will disable them
-                        crate::asm::enable_irqs();
-                        return self.run();
-                    }
-                    Some(ESR_EL1::EC::Value::TrappedMsrMrs) => {
-                        // Handle TrappedMsrMrs that might be brk instructions
-                        // Some brk instructions trigger TrappedMsrMrs instead of Brk64
-                        // Skip instruction (4 bytes) to match Linux behavior
-                        self.tf.elr += 4;
-                        // Continue execution immediately by recursively calling run()
-                        // Enable interrupts before recursive call since run() will disable them
-                        crate::asm::enable_irqs();
-                        return self.run();
-                    }
-                    Some(ESR_EL1::EC::Value::SVC64) => ReturnReason::Syscall,
-                    Some(ESR_EL1::EC::Value::InstrAbortLowerEL) if is_valid_page_fault(iss) => {
-                        ReturnReason::PageFault(
-                            va!(far),
-                            PageFaultFlags::EXECUTE | PageFaultFlags::USER,
-                        )
-                    }
-                    Some(ESR_EL1::EC::Value::DataAbortLowerEL) if is_valid_page_fault(iss) => {
-                        let wnr = (iss & (1 << 6)) != 0; // WnR: Write not Read
-                        let cm = (iss & (1 << 8)) != 0; // CM: Cache maintenance
-                        ReturnReason::PageFault(
-                            va!(far),
-                            if wnr & !cm {
-                                PageFaultFlags::WRITE
-                            } else {
-                                PageFaultFlags::READ
-                            } | PageFaultFlags::USER,
-                        )
-                    }
-                    _ => ReturnReason::Exception(ExceptionInfo { esr, far }),
+            let ret = match kind {
+                TrapKind::Irq => {
+                    handle_trap!(IRQ, 0);
+                    ReturnReason::Interrupt
                 }
-            }
-        };
+                TrapKind::Fiq | TrapKind::SError => ReturnReason::Unknown,
+                TrapKind::Synchronous => {
+                    let esr = ESR_EL1.extract();
+                    let far = FAR_EL1.get() as usize;
 
-        crate::asm::enable_irqs();
-        ret
+                    let iss = esr.read(ESR_EL1::ISS);
+                    let ec_enum = esr.read_as_enum(ESR_EL1::EC);
+
+                    // Check for breakpoint exceptions: Brk64 (0x3C) or TrappedMsrMrs (0x18)
+                    // Some brk instructions may be reported as TrappedMsrMrs
+                    // Skip brk instruction (4 bytes) if process is not being debugged
+                    // This matches Linux behavior: brk instructions are silently ignored
+                    match ec_enum {
+                        Some(ESR_EL1::EC::Value::Brk64) => {
+                            self.tf.elr += 4;
+                            // Skip the breakpoint instruction and continue execution
+                            // Enable interrupts before continuing the loop
+                            crate::asm::enable_irqs();
+                            continue;
+                        }
+                        Some(ESR_EL1::EC::Value::TrappedMsrMrs) => {
+                            // Handle TrappedMsrMrs that might be brk instructions
+                            // Some brk instructions trigger TrappedMsrMrs instead of Brk64
+                            // Skip instruction (4 bytes) to match Linux behavior
+                            self.tf.elr += 4;
+                            // Skip the breakpoint instruction and continue execution
+                            // Enable interrupts before continuing the loop
+                            crate::asm::enable_irqs();
+                            continue;
+                        }
+                        Some(ESR_EL1::EC::Value::SVC64) => ReturnReason::Syscall,
+                        Some(ESR_EL1::EC::Value::InstrAbortLowerEL) if is_valid_page_fault(iss) => {
+                            ReturnReason::PageFault(
+                                va!(far),
+                                PageFaultFlags::EXECUTE | PageFaultFlags::USER,
+                            )
+                        }
+                        Some(ESR_EL1::EC::Value::DataAbortLowerEL) if is_valid_page_fault(iss) => {
+                            let wnr = (iss & (1 << 6)) != 0; // WnR: Write not Read
+                            let cm = (iss & (1 << 8)) != 0; // CM: Cache maintenance
+                            ReturnReason::PageFault(
+                                va!(far),
+                                if wnr & !cm {
+                                    PageFaultFlags::WRITE
+                                } else {
+                                    PageFaultFlags::READ
+                                } | PageFaultFlags::USER,
+                            )
+                        }
+                        _ => ReturnReason::Exception(ExceptionInfo { esr, far }),
+                    }
+                }
+            };
+
+            crate::asm::enable_irqs();
+            return ret;
+        }
     }
 }
 

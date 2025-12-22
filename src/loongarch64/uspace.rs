@@ -42,50 +42,52 @@ impl UserContext {
             fn enter_user(uctx: &mut UserContext);
         }
 
-        crate::asm::disable_irqs();
-        unsafe { enter_user(self) };
+        loop {
+            crate::asm::disable_irqs();
+            unsafe { enter_user(self) };
 
-        let estat = estat::read();
-        let badv = badv::read().vaddr();
-        let badi = badi::read().inst();
+            let estat = estat::read();
+            let badv = badv::read().vaddr();
+            let badi = badi::read().inst();
 
-        let ret = match estat.cause() {
-            Trap::Interrupt(_) => {
-                let irq_num: usize = estat.is().trailing_zeros() as usize;
-                handle_trap!(IRQ, irq_num);
-                ReturnReason::Interrupt
-            }
-            Trap::Exception(Exception::Syscall) => {
-                self.era += 4;
-                ReturnReason::Syscall
-            }
-            Trap::Exception(Exception::Breakpoint) => {
-                // Skip breakpoint instruction (4 bytes) if process is not being debugged
-                // This matches Linux behavior: breakpoint instructions are silently ignored
-                self.era += 4;
-                // Continue execution immediately by recursively calling run()
-                // Enable interrupts before recursive call since run() will disable them
-                crate::asm::enable_irqs();
-                return self.run();
-            }
-            Trap::Exception(Exception::LoadPageFault)
-            | Trap::Exception(Exception::PageNonReadableFault) => {
-                ReturnReason::PageFault(va!(badv), PageFaultFlags::READ | PageFaultFlags::USER)
-            }
-            Trap::Exception(Exception::StorePageFault)
-            | Trap::Exception(Exception::PageModifyFault) => {
-                ReturnReason::PageFault(va!(badv), PageFaultFlags::WRITE | PageFaultFlags::USER)
-            }
-            Trap::Exception(Exception::FetchPageFault)
-            | Trap::Exception(Exception::PageNonExecutableFault) => {
-                ReturnReason::PageFault(va!(badv), PageFaultFlags::EXECUTE | PageFaultFlags::USER)
-            }
-            Trap::Exception(e) => ReturnReason::Exception(ExceptionInfo { e, badv, badi }),
-            _ => ReturnReason::Unknown,
-        };
+            let ret = match estat.cause() {
+                Trap::Interrupt(_) => {
+                    let irq_num: usize = estat.is().trailing_zeros() as usize;
+                    handle_trap!(IRQ, irq_num);
+                    ReturnReason::Interrupt
+                }
+                Trap::Exception(Exception::Syscall) => {
+                    self.era += 4;
+                    ReturnReason::Syscall
+                }
+                Trap::Exception(Exception::Breakpoint) => {
+                    // Skip breakpoint instruction (4 bytes) if process is not being debugged
+                    // This matches Linux behavior: breakpoint instructions are silently ignored
+                    self.era += 4;
+                    // Skip the breakpoint instruction and continue execution
+                    // Enable interrupts before continuing the loop
+                    crate::asm::enable_irqs();
+                    continue;
+                }
+                Trap::Exception(Exception::LoadPageFault)
+                | Trap::Exception(Exception::PageNonReadableFault) => {
+                    ReturnReason::PageFault(va!(badv), PageFaultFlags::READ | PageFaultFlags::USER)
+                }
+                Trap::Exception(Exception::StorePageFault)
+                | Trap::Exception(Exception::PageModifyFault) => {
+                    ReturnReason::PageFault(va!(badv), PageFaultFlags::WRITE | PageFaultFlags::USER)
+                }
+                Trap::Exception(Exception::FetchPageFault)
+                | Trap::Exception(Exception::PageNonExecutableFault) => {
+                    ReturnReason::PageFault(va!(badv), PageFaultFlags::EXECUTE | PageFaultFlags::USER)
+                }
+                Trap::Exception(e) => ReturnReason::Exception(ExceptionInfo { e, badv, badi }),
+                _ => ReturnReason::Unknown,
+            };
 
-        crate::asm::enable_irqs();
-        ret
+            crate::asm::enable_irqs();
+            return ret;
+        }
     }
 }
 

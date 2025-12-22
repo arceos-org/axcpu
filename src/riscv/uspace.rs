@@ -55,49 +55,51 @@ impl UserContext {
             fn enter_user(uctx: &mut UserContext);
         }
 
-        crate::asm::disable_irqs();
-        unsafe { enter_user(self) };
+        loop {
+            crate::asm::disable_irqs();
+            unsafe { enter_user(self) };
 
-        let scause = scause::read();
-        let ret = if let Ok(cause) = scause.cause().try_into::<I, E>() {
-            let stval = stval::read();
-            match cause {
-                Trap::Interrupt(_) => {
-                    handle_trap!(IRQ, scause.bits());
-                    ReturnReason::Interrupt
+            let scause = scause::read();
+            let ret = if let Ok(cause) = scause.cause().try_into::<I, E>() {
+                let stval = stval::read();
+                match cause {
+                    Trap::Interrupt(_) => {
+                        handle_trap!(IRQ, scause.bits());
+                        ReturnReason::Interrupt
+                    }
+                    Trap::Exception(E::UserEnvCall) => {
+                        self.sepc += 4;
+                        ReturnReason::Syscall
+                    }
+                    Trap::Exception(E::Breakpoint) => {
+                        // Skip breakpoint instruction (2 bytes) if process is not being debugged
+                        // This matches Linux behavior: breakpoint instructions are silently ignored
+                        self.sepc += 2;
+                        // Skip the breakpoint instruction and continue execution
+                        // Enable interrupts before continuing the loop
+                        crate::asm::enable_irqs();
+                        continue;
+                    }
+                    Trap::Exception(E::LoadPageFault) => {
+                        ReturnReason::PageFault(va!(stval), PageFaultFlags::READ | PageFaultFlags::USER)
+                    }
+                    Trap::Exception(E::StorePageFault) => ReturnReason::PageFault(
+                        va!(stval),
+                        PageFaultFlags::WRITE | PageFaultFlags::USER,
+                    ),
+                    Trap::Exception(E::InstructionPageFault) => ReturnReason::PageFault(
+                        va!(stval),
+                        PageFaultFlags::EXECUTE | PageFaultFlags::USER,
+                    ),
+                    Trap::Exception(e) => ReturnReason::Exception(ExceptionInfo { e, stval }),
                 }
-                Trap::Exception(E::UserEnvCall) => {
-                    self.sepc += 4;
-                    ReturnReason::Syscall
-                }
-                Trap::Exception(E::Breakpoint) => {
-                    // Skip breakpoint instruction (2 bytes) if process is not being debugged
-                    // This matches Linux behavior: breakpoint instructions are silently ignored
-                    self.sepc += 2;
-                    // Continue execution immediately by recursively calling run()
-                    // Enable interrupts before recursive call since run() will disable them
-                    crate::asm::enable_irqs();
-                    return self.run();
-                }
-                Trap::Exception(E::LoadPageFault) => {
-                    ReturnReason::PageFault(va!(stval), PageFaultFlags::READ | PageFaultFlags::USER)
-                }
-                Trap::Exception(E::StorePageFault) => ReturnReason::PageFault(
-                    va!(stval),
-                    PageFaultFlags::WRITE | PageFaultFlags::USER,
-                ),
-                Trap::Exception(E::InstructionPageFault) => ReturnReason::PageFault(
-                    va!(stval),
-                    PageFaultFlags::EXECUTE | PageFaultFlags::USER,
-                ),
-                Trap::Exception(e) => ReturnReason::Exception(ExceptionInfo { e, stval }),
-            }
-        } else {
-            ReturnReason::Unknown
-        };
+            } else {
+                ReturnReason::Unknown
+            };
 
-        crate::asm::enable_irqs();
-        ret
+            crate::asm::enable_irqs();
+            return ret;
+        }
     }
 }
 
