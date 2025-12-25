@@ -47,12 +47,16 @@ pub mod cpsr {
 ///
 /// This function is unsafe as it changes the address translation configuration.
 pub unsafe fn init_mmu(root_paddr: PhysAddr) {
+    use aarch32_cpu::asm::{dsb, isb};
+    use aarch32_cpu::register::{Sctlr, TlbIAll};
     use core::arch::asm;
 
     let root = root_paddr.as_usize() as u32;
 
     unsafe {
         // Set TTBR0 and TTBR1 to the same page table
+        // Note: VMSA-specific registers (TTBR0/1, TTBCR, DACR) are not abstracted in aarch32-cpu
+        // as it focuses on PMSA, so we use direct assembly here
         asm!("mcr p15, 0, {}, c2, c0, 0", in(reg) root); // TTBR0
         asm!("mcr p15, 0, {}, c2, c0, 1", in(reg) root); // TTBR1
 
@@ -63,40 +67,25 @@ pub unsafe fn init_mmu(root_paddr: PhysAddr) {
         // Domain 0-15: 01 = Client (check page table permissions)
         asm!("mcr p15, 0, {}, c3, c0, 0", in(reg) 0x55555555u32);
 
-        // Invalidate entire TLB
-        crate::asm::flush_tlb(None);
+        // Invalidate entire TLB using aarch32_cpu abstraction
+        TlbIAll::write();
 
-        // Data Synchronization Barrier
-        asm!("dsb");
+        // Synchronization barriers using aarch32_cpu abstractions
+        // These include compiler fences for proper ordering
+        dsb();
+        isb();
 
-        // Instruction Synchronization Barrier
-        asm!("isb");
+        // Enable MMU, data cache, and instruction cache using type-safe SCTLR abstraction
+        // Sctlr::modify(|r| {
+        //     r.set_m(true); // M bit: Enable MMU
+        //     r.set_c(true); // C bit: Enable data cache
+        //     r.set_i(true); // I bit: Enable instruction cache
+        // });
 
-        // Enable MMU with a carefully designed sequence
-        // This must be done atomically to avoid instruction fetch issues
-        // let mut sctlr: u32;
-        // asm!("mrc p15, 0, {}, c1, c0, 0", out(reg) sctlr);
-
-        // // Set MMU (M), Alignment check (A), Data cache (C), Instruction cache (I)
-        // sctlr |= (1 << 0)   // M bit: Enable MMU
-        //        | (1 << 2)   // C bit: Enable data cache
-        //        | (1 << 12); // I bit: Enable instruction cache
-
-        // // Critical: Write SCTLR and immediately branch to ensure correct instruction fetching
-        // // The branch ensures that the pipeline is flushed and refilled with the correct
-        // // virtual addresses after MMU is enabled
-        // asm!(
-        //     "mcr p15, 0, {sctlr}, c1, c0, 0",  // Write SCTLR to enable MMU
-        //     "isb",                              // Ensure instruction completes
-        //     "nop",                              // Pipeline bubble
-        //     "nop",                              // Pipeline bubble
-        //     sctlr = in(reg) sctlr,
-        //     options(nomem, nostack)
-        // );
-
-        // Synchronization barriers
-        asm!("dsb");
-        asm!("isb");
+        // Final synchronization barriers to ensure MMU is fully enabled
+        // and instruction pipeline is flushed
+        dsb();
+        isb();
     }
 }
 
