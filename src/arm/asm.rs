@@ -8,7 +8,7 @@ use memory_addr::{PhysAddr, VirtAddr};
 /// In ARMv7-A, it unmasks IRQs by clearing the I bit in the CPSR.
 #[inline]
 pub fn enable_irqs() {
-    unsafe { asm!("cpsie i") };
+    aarch32_cpu::asm::irq_enable();
 }
 
 /// Makes the current CPU to ignore interrupts.
@@ -16,7 +16,7 @@ pub fn enable_irqs() {
 /// In ARMv7-A, it masks IRQs by setting the I bit in the CPSR.
 #[inline]
 pub fn disable_irqs() {
-    unsafe { asm!("cpsid i") };
+    aarch32_cpu::asm::irq_disable();
 }
 
 /// Returns whether the current CPU is allowed to respond to interrupts.
@@ -24,9 +24,8 @@ pub fn disable_irqs() {
 /// In ARMv7-A, it checks the I bit in the CPSR.
 #[inline]
 pub fn irqs_enabled() -> bool {
-    let cpsr: u32;
-    unsafe { asm!("mrs {}, cpsr", out(reg) cpsr) };
-    (cpsr & (1 << 7)) == 0 // I bit is bit 7, 0 means enabled
+    let cpsr = aarch32_cpu::register::Cpsr::read();
+    !cpsr.i() // I bit is 1 when disabled, 0 when enabled
 }
 
 /// Relaxes the current CPU and waits for interrupts.
@@ -34,14 +33,14 @@ pub fn irqs_enabled() -> bool {
 /// It must be called with interrupts enabled, otherwise it will never return.
 #[inline]
 pub fn wait_for_irqs() {
-    unsafe { asm!("wfi") };
+    aarch32_cpu::asm::wfi();
 }
 
 /// Halt the current CPU.
 #[inline]
 pub fn halt() {
     disable_irqs();
-    unsafe { asm!("wfi") }; // should never return
+    aarch32_cpu::asm::wfi(); // should never return
 }
 
 /// Reads the current page table root register for kernel space (`TTBR1`).
@@ -49,6 +48,7 @@ pub fn halt() {
 /// Returns the physical address of the page table root.
 #[inline]
 pub fn read_kernel_page_table() -> PhysAddr {
+    // TTBR1: CP15, c2, CRn=2, CRm=0, Op1=0, Op2=1
     let root: u32;
     unsafe { asm!("mrc p15, 0, {}, c2, c0, 1", out(reg) root) };
     pa!(root as usize)
@@ -59,6 +59,7 @@ pub fn read_kernel_page_table() -> PhysAddr {
 /// Returns the physical address of the page table root.
 #[inline]
 pub fn read_user_page_table() -> PhysAddr {
+    // TTBR0: CP15, c2, CRn=2, CRm=0, Op1=0, Op2=0
     let root: u32;
     unsafe { asm!("mrc p15, 0, {}, c2, c0, 0", out(reg) root) };
     pa!(root as usize)
@@ -77,8 +78,8 @@ pub unsafe fn write_kernel_page_table(root_paddr: PhysAddr) {
     let root = root_paddr.as_usize() as u32;
     unsafe {
         asm!("mcr p15, 0, {}, c2, c0, 1", in(reg) root);
-        asm!("dsb");
-        asm!("isb");
+        aarch32_cpu::asm::dsb();
+        aarch32_cpu::asm::isb();
     }
 }
 
@@ -95,8 +96,8 @@ pub unsafe fn write_user_page_table(root_paddr: PhysAddr) {
     let root = root_paddr.as_usize() as u32;
     unsafe {
         asm!("mcr p15, 0, {}, c2, c0, 0", in(reg) root);
-        asm!("dsb");
-        asm!("isb");
+        aarch32_cpu::asm::dsb();
+        aarch32_cpu::asm::isb();
     }
 }
 
@@ -113,10 +114,10 @@ pub fn flush_tlb(vaddr: Option<VirtAddr>) {
             asm!("mcr p15, 0, {}, c8, c7, 1", in(reg) addr);
         } else {
             // TLBIALL - TLB Invalidate All
-            asm!("mcr p15, 0, {}, c8, c7, 0", in(reg) 0);
+            aarch32_cpu::register::TlbIAll::write();
         }
-        asm!("dsb");
-        asm!("isb");
+        aarch32_cpu::asm::dsb();
+        aarch32_cpu::asm::isb();
     }
 }
 
@@ -124,9 +125,10 @@ pub fn flush_tlb(vaddr: Option<VirtAddr>) {
 #[inline]
 pub fn flush_icache_all() {
     unsafe {
-        asm!("mcr p15, 0, {}, c7, c5, 0", in(reg) 0); // ICIALLU
-        asm!("dsb");
-        asm!("isb");
+        // ICIALLU - Instruction Cache Invalidate All to PoU
+        asm!("mcr p15, 0, {}, c7, c5, 0", in(reg) 0);
+        aarch32_cpu::asm::dsb();
+        aarch32_cpu::asm::isb();
     }
 }
 
@@ -134,11 +136,9 @@ pub fn flush_icache_all() {
 #[inline]
 pub fn flush_dcache_line(vaddr: VirtAddr) {
     let addr = vaddr.as_usize() as u32;
-    unsafe {
-        asm!("mcr p15, 0, {}, c7, c14, 1", in(reg) addr); // DCCIMVAC
-        asm!("dsb");
-        asm!("isb");
-    }
+    aarch32_cpu::cache::clean_and_invalidate_data_cache_line_to_poc(addr);
+    aarch32_cpu::asm::dsb();
+    aarch32_cpu::asm::isb();
 }
 
 /// Writes exception vector base address register (`VBAR`).
@@ -150,25 +150,24 @@ pub fn flush_dcache_line(vaddr: VirtAddr) {
 #[inline]
 pub unsafe fn write_exception_vector_base(vbar: usize) {
     let vbar = vbar as u32;
-    unsafe {
-        asm!("mcr p15, 0, {}, c12, c0, 0", in(reg) vbar);
-        asm!("dsb");
-        asm!("isb");
-    }
+    asm!("mcr p15, 0, {}, c12, c0, 0", in(reg) vbar);
+    aarch32_cpu::asm::dsb();
+    aarch32_cpu::asm::isb();
 }
 
 /// Enable FP/SIMD instructions by setting the appropriate bits in CPACR.
 #[cfg(feature = "fp-simd")]
 #[inline]
 pub fn enable_fp() {
+    let mut cpacr = aarch32_cpu::register::Cpacr::read();
+    // Enable CP10 and CP11 (VFP/NEON)
+    cpacr.0 |= (0b11 << 20) | (0b11 << 22);
     unsafe {
-        let mut cpacr: u32;
-        asm!("mrc p15, 0, {}, c1, c0, 2", out(reg) cpacr);
-        // Enable CP10 and CP11 (VFP/NEON)
-        cpacr |= (0b11 << 20) | (0b11 << 22);
-        asm!("mcr p15, 0, {}, c1, c0, 2", in(reg) cpacr);
-        asm!("isb");
-        // Enable VFP by setting EN bit in FPEXC
+        aarch32_cpu::register::Cpacr::write(cpacr);
+    }
+    aarch32_cpu::asm::isb();
+    // Enable VFP by setting EN bit in FPEXC
+    unsafe {
         asm!("vmsr fpexc, {}", in(reg) 0x40000000u32);
     }
 }
@@ -176,6 +175,7 @@ pub fn enable_fp() {
 /// Reads the exception vector base address register (`VBAR`).
 #[inline]
 pub fn read_exception_vector_base() -> usize {
+    // VBAR: CP15, c12, CRn=12, CRm=0, Op1=0, Op2=0
     let vbar: u32;
     unsafe { asm!("mrc p15, 0, {}, c12, c0, 0", out(reg) vbar) };
     vbar as usize
@@ -184,41 +184,31 @@ pub fn read_exception_vector_base() -> usize {
 /// Reads the Data Fault Status Register (DFSR).
 #[inline]
 pub fn read_dfsr() -> u32 {
-    let dfsr: u32;
-    unsafe { asm!("mrc p15, 0, {}, c5, c0, 0", out(reg) dfsr) };
-    dfsr
+    aarch32_cpu::register::Dfsr::read().raw_value()
 }
 
 /// Reads the Data Fault Address Register (DFAR).
 #[inline]
 pub fn read_dfar() -> u32 {
-    let dfar: u32;
-    unsafe { asm!("mrc p15, 0, {}, c6, c0, 0", out(reg) dfar) };
-    dfar
+    aarch32_cpu::register::Dfar::read().0
 }
 
 /// Reads the Instruction Fault Status Register (IFSR).
 #[inline]
 pub fn read_ifsr() -> u32 {
-    let ifsr: u32;
-    unsafe { asm!("mrc p15, 0, {}, c5, c0, 1", out(reg) ifsr) };
-    ifsr
+    aarch32_cpu::register::Ifsr::read().raw_value()
 }
 
 /// Reads the Instruction Fault Address Register (IFAR).
 #[inline]
 pub fn read_ifar() -> u32 {
-    let ifar: u32;
-    unsafe { asm!("mrc p15, 0, {}, c6, c0, 2", out(reg) ifar) };
-    ifar
+    aarch32_cpu::register::Ifar::read().0
 }
 
 /// Reads the System Control Register (SCTLR).
 #[inline]
 pub fn read_sctlr() -> u32 {
-    let sctlr: u32;
-    unsafe { asm!("mrc p15, 0, {}, c1, c0, 0", out(reg) sctlr) };
-    sctlr
+    aarch32_cpu::register::Sctlr::read().raw_value()
 }
 
 /// Writes the System Control Register (SCTLR).
@@ -228,47 +218,44 @@ pub fn read_sctlr() -> u32 {
 /// This function is unsafe as it can modify critical system settings.
 #[inline]
 pub unsafe fn write_sctlr(sctlr: u32) {
-    unsafe {
-        asm!("mcr p15, 0, {}, c1, c0, 0", in(reg) sctlr);
-        asm!("dsb");
-        asm!("isb");
-    }
+    let sctlr_reg = aarch32_cpu::register::Sctlr::new_with_raw_value(sctlr);
+    aarch32_cpu::register::Sctlr::write(sctlr_reg);
+    aarch32_cpu::asm::dsb();
+    aarch32_cpu::asm::isb();
 }
 
 /// Reads the CPSR (Current Program Status Register).
 #[inline]
 pub fn read_cpsr() -> u32 {
-    let cpsr: u32;
-    unsafe { asm!("mrs {}, cpsr", out(reg) cpsr) };
-    cpsr
+    aarch32_cpu::register::Cpsr::read().raw_value()
 }
 
 /// Data Synchronization Barrier.
 #[inline]
 pub fn dsb() {
-    unsafe { asm!("dsb") };
+    aarch32_cpu::asm::dsb();
 }
 
 /// Data Memory Barrier.
 #[inline]
 pub fn dmb() {
-    unsafe { asm!("dmb") };
+    aarch32_cpu::asm::dmb();
 }
 
 /// Instruction Synchronization Barrier.
 #[inline]
 pub fn isb() {
-    unsafe { asm!("isb") };
+    aarch32_cpu::asm::isb();
 }
 
 /// Send Event - wake up cores waiting in WFE.
 #[inline]
 pub fn sev() {
-    unsafe { asm!("sev") };
+    aarch32_cpu::asm::sev();
 }
 
 /// Wait for Event.
 #[inline]
 pub fn wfe() {
-    unsafe { asm!("wfe") };
+    aarch32_cpu::asm::wfe();
 }
