@@ -42,6 +42,9 @@ pub(super) fn is_valid_page_fault(iss: u64) -> bool {
 }
 
 fn handle_page_fault(tf: &mut TrapFrame, access_flags: PageFaultFlags) {
+    // handle_page_fault is a schedulabe function, so we need to enable irqs here
+    crate::asm::enable_irqs();
+
     let vaddr = va!(FAR_EL1.get() as usize);
     if handle_trap!(PAGE_FAULT, vaddr, access_flags) {
         return;
