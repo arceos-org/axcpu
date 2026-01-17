@@ -1,5 +1,7 @@
 //! ARM32 exception handling routines.
 
+use aarch32_cpu::register::{dfsr::DfsrStatus, ifsr::FsrStatus};
+
 use super::TrapFrame;
 use crate::trap::PageFaultFlags;
 
@@ -71,130 +73,85 @@ fn handle_sync_exception(tf: &mut TrapFrame) {
     }
     #[cfg(not(feature = "uspace"))]
     {
-        panic!("SVC #{} at {:#x} but uspace feature not enabled:\n{:#x?}", svc_num, tf.pc, tf);
+        panic!(
+            "SVC #{} at {:#x} but uspace feature not enabled:\n{:#x?}",
+            svc_num, tf.pc, tf
+        );
     }
 }
 
 /// Handler for prefetch abort exceptions.
 #[unsafe(no_mangle)]
 fn handle_prefetch_abort_exception(tf: &mut TrapFrame) {
-    use core::arch::asm;
+    let (fsr, far) = (super::asm::read_ifsr(), super::asm::read_ifar());
 
-    // Read IFSR (Instruction Fault Status Register)
-    let ifsr: u32;
-    unsafe { asm!("mrc p15, 0, {}, c5, c0, 1", out(reg) ifsr) };
+    let cpsr = super::asm::read_cpsr();
 
-    // Read IFAR (Instruction Fault Address Register)
-    let ifar: u32;
-    unsafe { asm!("mrc p15, 0, {}, c6, c0, 2", out(reg) ifar) };
+    let is_user = cpsr.mode() == Ok(aarch32_cpu::register::cpsr::ProcessorMode::Usr);
 
-    let vaddr = va!(ifar as usize);
-    let fs = ifsr & 0xF; // Fault status bits [3:0]
+    let access_flags = PageFaultFlags::EXECUTE
+        | if is_user {
+            PageFaultFlags::USER
+        } else {
+            PageFaultFlags::empty()
+        };
 
-    // Determine if this is a user mode fault
-    let is_user = (tf.cpsr & 0x1F) == 0x10; // User mode
+    let fsr_status = match fsr.status() {
+        Ok(status) => status,
+        Err(raw) => panic!(
+            "Unknown IFSR status {:#x} in Prefetch Abort at {:#x}:\n{:#x?}",
+            raw, tf.pc, tf
+        ),
+    };
 
-    trace!(
-        "Prefetch Abort at {:#x}, IFSR={:#x}, IFAR={:#x}, user={}",
-        tf.pc, ifsr, ifar, is_user
-    );
-
-    // Check if this is a translation/permission fault we can handle
-    let mut access_flags = PageFaultFlags::EXECUTE;
-    if is_user {
-        access_flags |= PageFaultFlags::USER;
-    }
-
-    // FS encoding for page faults:
-    // 0b0101 (5): Translation fault (Section)
-    // 0b0111 (7): Translation fault (Page)
-    // 0b1101 (13): Permission fault (Section)
-    // 0b1111 (15): Permission fault (Page)
-    match fs {
-        0b0101 | 0b0111 | 0b1101 | 0b1111 => {
-            if !handle_trap!(PAGE_FAULT, vaddr, access_flags, is_user) {
-                panic!(
-                    "Unhandled {} Prefetch Abort @ {:#x}, fault_vaddr={:#x}, IFSR={:#x} ({:?}):\n{:#x?}",
-                    if is_user { "User" } else { "Supervisor" },
-                    tf.pc,
-                    vaddr,
-                    ifsr,
-                    access_flags,
-                    tf,
-                );
+    match fsr_status {
+        FsrStatus::TranslationFaultFirstLevel | FsrStatus::TranslationFaultSecondLevel => {
+            let vaddr = va!(far.0 as usize);
+            if handle_trap!(PAGE_FAULT, vaddr, access_flags, is_user) {
+                return;
             }
         }
-        _ => {
-            panic!(
-                "Unhandled Prefetch Abort at {:#x}, IFSR={:#x}, IFAR={:#x}:\n{:#x?}",
-                tf.pc, ifsr, ifar, tf
-            );
-        }
+        _ => {}
     }
 }
 
 /// Handler for data abort exceptions.
 #[unsafe(no_mangle)]
 fn handle_data_abort_exception(tf: &mut TrapFrame) {
-    use core::arch::asm;
+    let (fsr, far) = (super::asm::read_dfsr(), super::asm::read_dfar());
 
-    // Read DFSR (Data Fault Status Register)
-    let dfsr: u32;
-    unsafe { asm!("mrc p15, 0, {}, c5, c0, 0", out(reg) dfsr) };
+    let cpsr = super::asm::read_cpsr();
 
-    // Read DFAR (Data Fault Address Register)
-    let dfar: u32;
-    unsafe { asm!("mrc p15, 0, {}, c6, c0, 0", out(reg) dfar) };
+    let is_user = cpsr.mode() == Ok(aarch32_cpu::register::cpsr::ProcessorMode::Usr);
 
-    let vaddr = va!(dfar as usize);
-    let fs = dfsr & 0xF; // Fault status bits [3:0]
-
-    // Determine if this is a user mode fault
-    let is_user = (tf.cpsr & 0x1F) == 0x10; // User mode
-
-    trace!(
-        "Data Abort at {:#x}, DFSR={:#x}, DFAR={:#x}, user={}",
-        tf.pc, dfsr, dfar, is_user
-    );
-
-    // Determine access type from fault status
-    let mut access_flags = PageFaultFlags::empty();
-
-    // Check WnR bit (bit 11) to determine if it's a write
-    if (dfsr & (1 << 11)) != 0 {
-        access_flags |= PageFaultFlags::WRITE;
+    let mut access_flags = if fsr.wnr() {
+        PageFaultFlags::WRITE
     } else {
-        access_flags |= PageFaultFlags::READ;
-    }
+        PageFaultFlags::READ
+    };
 
     if is_user {
         access_flags |= PageFaultFlags::USER;
     }
 
-    // FS encoding for page faults:
-    // 0b0101 (5): Translation fault (Section)
-    // 0b0111 (7): Translation fault (Page)
-    // 0b1101 (13): Permission fault (Section)
-    // 0b1111 (15): Permission fault (Page)
-    match fs {
-        0b0101 | 0b0111 | 0b1101 | 0b1111 => {
-            if !handle_trap!(PAGE_FAULT, vaddr, access_flags, is_user) {
-                panic!(
-                    "Unhandled {} Data Abort @ {:#x}, fault_vaddr={:#x}, DFSR={:#x} ({:?}):\n{:#x?}",
-                    if is_user { "User" } else { "Supervisor" },
-                    tf.pc,
-                    vaddr,
-                    dfsr,
-                    access_flags,
-                    tf,
-                );
+    let fsr_status = match fsr.status() {
+        Ok(status) => status,
+        Err(raw) => panic!(
+            "Unknown DFSR status {:#x} in Data Abort at {:#x}:\n{:#x?}",
+            raw, tf.pc, tf
+        ),
+    };
+
+    match fsr_status {
+        DfsrStatus::CommonFsr(FsrStatus::TranslationFaultFirstLevel)
+        | DfsrStatus::CommonFsr(FsrStatus::TranslationFaultSecondLevel)
+        | DfsrStatus::CommonFsr(FsrStatus::PermissionFaultFirstLevel)
+        | DfsrStatus::CommonFsr(FsrStatus::PermissionFaultSecondLevel) => {
+            let vaddr = va!(far.0 as usize);
+            if handle_trap!(PAGE_FAULT, vaddr, access_flags, is_user) {
+                return;
             }
         }
-        _ => {
-            panic!(
-                "Unhandled Data Abort at {:#x}, DFSR={:#x}, DFAR={:#x}:\n{:#x?}",
-                tf.pc, dfsr, dfar, tf
-            );
-        }
+        _ => {}
     }
 }
