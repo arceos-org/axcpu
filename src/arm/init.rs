@@ -60,8 +60,8 @@ pub unsafe fn init_mmu(root_paddr: PhysAddr) {
         asm!("mcr p15, 0, {}, c2, c0, 0", in(reg) root); // TTBR0
         asm!("mcr p15, 0, {}, c2, c0, 1", in(reg) root); // TTBR1
 
-        // Set TTBCR to use TTBR0 for all addresses (N=0)
-        asm!("mcr p15, 0, {}, c2, c0, 2", in(reg) 0u32);
+        // Set TTBCR to use TTBR0 for all addresses (N=1)
+        asm!("mcr p15, 0, {}, c2, c0, 2", in(reg) 0x1u32);
 
         // Set Domain Access Control Register (all domains to client mode)
         // Domain 0-15: 01 = Client (check page table permissions)
@@ -76,11 +76,11 @@ pub unsafe fn init_mmu(root_paddr: PhysAddr) {
         isb();
 
         // Enable MMU, data cache, and instruction cache using type-safe SCTLR abstraction
-        // Sctlr::modify(|r| {
-        //     r.set_m(true); // M bit: Enable MMU
-        //     r.set_c(true); // C bit: Enable data cache
-        //     r.set_i(true); // I bit: Enable instruction cache
-        // });
+        Sctlr::modify(|r| {
+            r.set_m(true); // M bit: Enable MMU
+            r.set_c(true); // C bit: Enable data cache
+            r.set_i(true); // I bit: Enable instruction cache
+        });
 
         // Final synchronization barriers to ensure MMU is fully enabled
         // and instruction pipeline is flushed

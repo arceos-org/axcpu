@@ -178,31 +178,30 @@ unsafe extern "C" fn fpstate_restore(_fp_state: &FpState) {
 #[unsafe(naked)]
 unsafe extern "C" fn context_switch(_current_task: &mut TaskContext, _next_task: &TaskContext) {
     naked_asm!(
-        include_asm_macros!(),
         "
         // save old context (callee-saved registers)
-        STR lr, r0, 9
-        STR r11, r0, 8
-        STR r10, r0, 7
-        STR r9, r0, 6
-        STR r8, r0, 5
-        STR r7, r0, 4
-        STR r6, r0, 3
-        STR r5, r0, 2
-        STR r4, r0, 1
-        STR sp, r0, 0
+        str lr, [r0, #9*4]
+        str r11, [r0, #8*4]
+        str r10, [r0, #7*4]
+        str r9, [r0, #6*4]
+        str r8, [r0, #5*4]
+        str r7, [r0, #4*4]
+        str r6, [r0, #3*4]
+        str r5, [r0, #2*4]
+        str r4, [r0, #1*4]
+        str sp, [r0, #0*4]
 
         // restore new context
-        LDR sp, r1, 0
-        LDR r4, r1, 1
-        LDR r5, r1, 2
-        LDR r6, r1, 3
-        LDR r7, r1, 4
-        LDR r8, r1, 5
-        LDR r9, r1, 6
-        LDR r10, r1, 7
-        LDR r11, r1, 8
-        LDR lr, r1, 9
+        ldr sp, [r1, #0*4]
+        ldr r4, [r1, #1*4]
+        ldr r5, [r1, #2*4]
+        ldr r6, [r1, #3*4]
+        ldr r7, [r1, #4*4]
+        ldr r8, [r1, #5*4]
+        ldr r9, [r1, #6*4]
+        ldr r10, [r1, #7*4]
+        ldr r11, [r1, #8*4]
+        ldr lr, [r1, #9*4]
 
         bx lr",
     )

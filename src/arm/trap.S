@@ -88,6 +88,33 @@
     movs pc, lr
 .endm
 
+.macro HANDLE_EXCEPTION name, lr_offset, handler, arg1
+\name:
+    sub lr, lr, #\lr_offset
+    srsdb sp!, #0x13
+    cps #0x13
+
+    sub sp, sp, #TRAPFRAME_SIZE - 8
+    stmia sp, {{r0-r12}}
+
+    add r0, sp, #TRAPFRAME_SIZE - 8
+    ldmia r0, {{r1, r2}}
+    str r1, [sp, #TRAPFRAME_PC]
+    str r2, [sp, #TRAPFRAME_CPSR]
+
+    add r0, sp, #TRAPFRAME_SIZE
+    str r0, [sp, #TRAPFRAME_SP]
+    mov r0, #0
+    str r0, [sp, #TRAPFRAME_LR]
+
+    mov r0, sp
+    .ifnb \arg1
+    mov r1, #\arg1
+    .endif
+    bl \handler
+    b .Lexception_return
+.endm
+
 /*
  * Exception Vector Table
  *
@@ -129,35 +156,7 @@ _handle_reset:
  * Undefined Instruction Handler
  * LR_und = address of undefined instruction + 4
  */
-_handle_undef:
-    // Save SPSR and adjust LR
-    sub lr, lr, #4              // Point to the undefined instruction
-    srsdb sp!, #0x13            // Save LR and SPSR to SVC stack
-    cps #0x13                   // Switch to SVC mode
-
-    // Now in SVC mode, save context
-    sub sp, sp, #TRAPFRAME_SIZE - 8  // -8 because SRS already pushed 2 words
-    stmia sp, {{r0-r12}}
-
-    // Get the saved LR and SPSR from after r12
-    add r0, sp, #TRAPFRAME_SIZE - 8
-    ldmia r0, {{r1, r2}}        // r1 = LR (PC), r2 = SPSR
-
-    // Store them properly in trap frame
-    str r1, [sp, #TRAPFRAME_PC]
-    str r2, [sp, #TRAPFRAME_CPSR]
-
-    // Fix stack: remove the SRS-pushed values and adjust sp in frame
-    add r0, sp, #TRAPFRAME_SIZE
-    str r0, [sp, #TRAPFRAME_SP]
-    mov r0, #0
-    str r0, [sp, #TRAPFRAME_LR]
-
-    // Call handler
-    mov r0, sp
-    mov r1, #1                  // UNDEF = 1
-    bl invalid_exception
-    b .Lexception_return
+HANDLE_EXCEPTION _handle_undef, 4, invalid_exception, 1
 
 /*
  * SVC Handler
@@ -183,55 +182,13 @@ _handle_svc:
  * Prefetch Abort Handler
  * LR_abt = address of aborted instruction + 4
  */
-_handle_prefetch_abort:
-    sub lr, lr, #4              // Point to the aborted instruction
-    srsdb sp!, #0x13            // Save LR and SPSR to SVC stack
-    cps #0x13                   // Switch to SVC mode
-
-    sub sp, sp, #TRAPFRAME_SIZE - 8
-    stmia sp, {{r0-r12}}
-
-    add r0, sp, #TRAPFRAME_SIZE - 8
-    ldmia r0, {{r1, r2}}
-    str r1, [sp, #TRAPFRAME_PC]
-    str r2, [sp, #TRAPFRAME_CPSR]
-
-    add r0, sp, #TRAPFRAME_SIZE
-    str r0, [sp, #TRAPFRAME_SP]
-    mov r0, #0
-    str r0, [sp, #TRAPFRAME_LR]
-
-    // Call prefetch abort handler
-    mov r0, sp
-    bl handle_prefetch_abort_exception
-    b .Lexception_return
+HANDLE_EXCEPTION _handle_prefetch_abort, 4, handle_prefetch_abort_exception
 
 /*
  * Data Abort Handler
  * LR_abt = address of aborted instruction + 8
  */
-_handle_data_abort:
-    sub lr, lr, #8              // Point to the aborted instruction
-    srsdb sp!, #0x13            // Save LR and SPSR to SVC stack
-    cps #0x13                   // Switch to SVC mode
-
-    sub sp, sp, #TRAPFRAME_SIZE - 8
-    stmia sp, {{r0-r12}}
-
-    add r0, sp, #TRAPFRAME_SIZE - 8
-    ldmia r0, {{r1, r2}}
-    str r1, [sp, #TRAPFRAME_PC]
-    str r2, [sp, #TRAPFRAME_CPSR]
-
-    add r0, sp, #TRAPFRAME_SIZE
-    str r0, [sp, #TRAPFRAME_SP]
-    mov r0, #0
-    str r0, [sp, #TRAPFRAME_LR]
-
-    // Call data abort handler
-    mov r0, sp
-    bl handle_data_abort_exception
-    b .Lexception_return
+HANDLE_EXCEPTION _handle_data_abort, 8, handle_data_abort_exception
 
 /*
  * Reserved - should never happen
@@ -243,55 +200,13 @@ _handle_reserved:
  * IRQ Handler
  * LR_irq = address of next instruction to execute + 4
  */
-_handle_irq:
-    sub lr, lr, #4              // Point to the return address
-    srsdb sp!, #0x13            // Save LR and SPSR to SVC stack
-    cps #0x13                   // Switch to SVC mode
-
-    sub sp, sp, #TRAPFRAME_SIZE - 8
-    stmia sp, {{r0-r12}}
-
-    add r0, sp, #TRAPFRAME_SIZE - 8
-    ldmia r0, {{r1, r2}}
-    str r1, [sp, #TRAPFRAME_PC]
-    str r2, [sp, #TRAPFRAME_CPSR]
-
-    add r0, sp, #TRAPFRAME_SIZE
-    str r0, [sp, #TRAPFRAME_SP]
-    mov r0, #0
-    str r0, [sp, #TRAPFRAME_LR]
-
-    // Call IRQ handler
-    mov r0, sp
-    bl handle_irq_exception
-    b .Lexception_return
+HANDLE_EXCEPTION _handle_irq, 4, handle_irq_exception
 
 /*
  * FIQ Handler
  * LR_fiq = address of next instruction to execute + 4
  */
-_handle_fiq:
-    sub lr, lr, #4
-    srsdb sp!, #0x13
-    cps #0x13
-
-    sub sp, sp, #TRAPFRAME_SIZE - 8
-    stmia sp, {{r0-r12}}
-
-    add r0, sp, #TRAPFRAME_SIZE - 8
-    ldmia r0, {{r1, r2}}
-    str r1, [sp, #TRAPFRAME_PC]
-    str r2, [sp, #TRAPFRAME_CPSR]
-
-    add r0, sp, #TRAPFRAME_SIZE
-    str r0, [sp, #TRAPFRAME_SP]
-    mov r0, #0
-    str r0, [sp, #TRAPFRAME_LR]
-
-    mov r0, sp
-    mov r1, #7                  // FIQ = 7
-    bl invalid_exception
-    b .Lexception_return
+HANDLE_EXCEPTION _handle_fiq, 4, invalid_exception, 7
 
 /*
  * Common exception return path

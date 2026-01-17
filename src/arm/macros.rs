@@ -1,32 +1,7 @@
-macro_rules! __asm_macros {
-    () => {
-        r"
-        .ifndef REGBYTES
-        .equ REGBYTES, 4
-
-        .macro LDR rd, rs, off
-            ldr \rd, [\rs, #\off*REGBYTES]
-        .endm
-        .macro STR rs2, rs1, off
-            str \rs2, [\rs1, #\off*REGBYTES]
-        .endm
-
-        .endif"
-    };
-}
-
-macro_rules! include_asm_macros {
-    () => {
-        __asm_macros!()
-    };
-}
-
 #[cfg(feature = "fp-simd")]
 macro_rules! include_fp_asm_macros {
     () => {
-        concat!(
-            __asm_macros!(),
-            r#"
+        r#"
             .ifndef FP_MACROS_FLAG
             .equ FP_MACROS_FLAG, 1
 
@@ -60,6 +35,5 @@ macro_rules! include_fp_asm_macros {
             .endm
 
             .endif"#
-        )
     };
 }

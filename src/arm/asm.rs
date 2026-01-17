@@ -183,32 +183,32 @@ pub fn read_exception_vector_base() -> usize {
 
 /// Reads the Data Fault Status Register (DFSR).
 #[inline]
-pub fn read_dfsr() -> u32 {
-    aarch32_cpu::register::Dfsr::read().raw_value()
+pub fn read_dfsr() -> aarch32_cpu::register::Dfsr {
+    aarch32_cpu::register::Dfsr::read()
 }
 
 /// Reads the Data Fault Address Register (DFAR).
 #[inline]
-pub fn read_dfar() -> u32 {
-    aarch32_cpu::register::Dfar::read().0
+pub fn read_dfar() -> aarch32_cpu::register::Dfar {
+    aarch32_cpu::register::Dfar::read()
 }
 
 /// Reads the Instruction Fault Status Register (IFSR).
 #[inline]
-pub fn read_ifsr() -> u32 {
-    aarch32_cpu::register::Ifsr::read().raw_value()
+pub fn read_ifsr() -> aarch32_cpu::register::Ifsr {
+    aarch32_cpu::register::Ifsr::read()
 }
 
 /// Reads the Instruction Fault Address Register (IFAR).
 #[inline]
-pub fn read_ifar() -> u32 {
-    aarch32_cpu::register::Ifar::read().0
+pub fn read_ifar() -> aarch32_cpu::register::Ifar {
+    aarch32_cpu::register::Ifar::read()
 }
 
 /// Reads the System Control Register (SCTLR).
 #[inline]
-pub fn read_sctlr() -> u32 {
-    aarch32_cpu::register::Sctlr::read().raw_value()
+pub fn read_sctlr() -> aarch32_cpu::register::Sctlr {
+    aarch32_cpu::register::Sctlr::read()
 }
 
 /// Writes the System Control Register (SCTLR).
@@ -217,17 +217,16 @@ pub fn read_sctlr() -> u32 {
 ///
 /// This function is unsafe as it can modify critical system settings.
 #[inline]
-pub unsafe fn write_sctlr(sctlr: u32) {
-    let sctlr_reg = aarch32_cpu::register::Sctlr::new_with_raw_value(sctlr);
-    aarch32_cpu::register::Sctlr::write(sctlr_reg);
+pub unsafe fn write_sctlr(sctlr: aarch32_cpu::register::Sctlr) {
+    aarch32_cpu::register::Sctlr::write(sctlr);
     aarch32_cpu::asm::dsb();
     aarch32_cpu::asm::isb();
 }
 
 /// Reads the CPSR (Current Program Status Register).
 #[inline]
-pub fn read_cpsr() -> u32 {
-    aarch32_cpu::register::Cpsr::read().raw_value()
+pub fn read_cpsr() -> aarch32_cpu::register::Cpsr {
+    aarch32_cpu::register::Cpsr::read()
 }
 
 /// Data Synchronization Barrier.
