@@ -12,4 +12,4 @@ pub mod init;
 mod trap;
 
 pub use self::context::{FpState, TaskContext, TrapFrame};
-pub use self::init::{current_mode, is_privileged, mode, cpsr};
+pub use self::init::{cpsr, current_mode, is_privileged, mode};
