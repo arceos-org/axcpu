@@ -38,9 +38,10 @@ jobs:
         with:
           toolchain: nightly-2025-08-15
           components: rust-src
+          targets: aarch64-unknown-none
 
       - name: Build docs
-        run: cargo doc --no-deps --target aarch64-unknown-none
+        run: cargo doc -Z build-std=core,alloc --no-deps --target aarch64-unknown-none
 
       - name: Create index redirect
         run: |

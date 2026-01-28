@@ -36,4 +36,4 @@ jobs:
         run: cargo clippy --target ${{ matrix.targets }} -- -D warnings
 
       - name: Build documentation
-        run: cargo doc --no-deps --target ${{ matrix.targets }}
+        run: cargo doc -Z build-std=core,alloc --no-deps --target ${{ matrix.targets }}
