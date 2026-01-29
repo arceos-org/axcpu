@@ -30,6 +30,7 @@ dependencies = [
  "memory_addr",
  "page_table_entry",
  "page_table_multiarch",
+ "paste",
  "percpu",
  "riscv",
  "static_assertions",
