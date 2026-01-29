@@ -106,6 +106,36 @@ pub fn flush_tlb(vaddr: Option<VirtAddr>) {
     }
 }
 
+/// Writes the Supervisor Status register (`sstatus`).
+#[inline]
+pub fn sstatus_write(val: usize) {
+    unsafe { core::arch::asm!("csrw sstatus, {}", in(reg) val) }
+}
+
+/// Reads the Supervisor Status register (`sstatus`).
+#[inline]
+pub fn sstatus_read() -> usize {
+    unsafe {
+        let rval;
+        core::arch::asm!("csrr {}, sstatus", out(reg) rval);
+        rval
+    }
+}
+
+/// Flushes the instruction cache of riscv.
+#[inline]
+pub fn flush_icache() {
+    riscv::asm::fence_i();
+
+    /// Flushes the instruction cache for T-Head C9xx cores.
+    #[cfg(feature = "sg2002")]
+    unsafe {
+        // Ensure instruction fetch sees latest memory contents.
+        core::arch::asm!(".long 0x0100000b"); // 15.1.13 ICACHE.IALL
+        core::arch::asm!(".long 0x01a0000b"); // 15.2.2 SYNC.I
+    }
+}
+
 /// Writes the Supervisor Trap Vector Base Address register (`stvec`).
 ///
 /// # Safety

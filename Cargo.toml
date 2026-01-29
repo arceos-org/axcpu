@@ -29,6 +29,7 @@ fp-simd = []
 tls = []
 uspace = []
 arm-el2 = ["page_table_entry/arm-el2"]
+sg2002 = []
 
 [dependencies]
 axbacktrace = "0.1"
