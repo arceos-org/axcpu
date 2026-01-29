@@ -76,41 +76,53 @@ impl UserContext {
         assert_eq!(self.cs, gdt::UCODE64.0 as _);
         assert_eq!(self.ss, gdt::UDATA.0 as _);
 
-        crate::asm::disable_irqs();
+        loop {
+            crate::asm::disable_irqs();
 
-        let kernel_fs_base = read_thread_pointer();
-        unsafe { write_thread_pointer(self.fs_base as _) };
-        KernelGsBase::write(x86_64::VirtAddr::new_truncate(self.gs_base));
+            let kernel_fs_base = read_thread_pointer();
+            unsafe { write_thread_pointer(self.fs_base as _) };
+            KernelGsBase::write(x86_64::VirtAddr::new_truncate(self.gs_base));
 
-        unsafe { enter_user(self) };
+            unsafe { enter_user(self) };
 
-        self.gs_base = KernelGsBase::read().as_u64();
-        self.fs_base = read_thread_pointer() as _;
-        unsafe { write_thread_pointer(kernel_fs_base) };
+            self.gs_base = KernelGsBase::read().as_u64();
+            self.fs_base = read_thread_pointer() as _;
+            unsafe { write_thread_pointer(kernel_fs_base) };
 
-        let cr2 = Cr2::read().unwrap().as_u64() as usize;
-        let vector = self.vector as u8;
+            let cr2 = Cr2::read().unwrap().as_u64() as usize;
+            let vector = self.vector as u8;
 
-        const PAGE_FAULT_VECTOR: u8 = ExceptionVector::Page as u8;
+            const PAGE_FAULT_VECTOR: u8 = ExceptionVector::Page as u8;
+            const BREAKPOINT_VECTOR: u8 = ExceptionVector::Breakpoint as u8;
 
-        let ret = match vector {
-            PAGE_FAULT_VECTOR if let Ok(flags) = err_code_to_flags(self.error_code) => {
-                ReturnReason::PageFault(va!(cr2), flags)
-            }
-            LEGACY_SYSCALL_VECTOR => ReturnReason::Syscall,
-            IRQ_VECTOR_START..=IRQ_VECTOR_END => {
-                handle_trap!(IRQ, vector as _);
-                ReturnReason::Interrupt
-            }
-            _ => ReturnReason::Exception(ExceptionInfo {
-                vector,
-                error_code: self.error_code,
-                cr2,
-            }),
-        };
+            let ret = match vector {
+                PAGE_FAULT_VECTOR if let Ok(flags) = err_code_to_flags(self.error_code) => {
+                    ReturnReason::PageFault(va!(cr2), flags)
+                }
+                LEGACY_SYSCALL_VECTOR => ReturnReason::Syscall,
+                BREAKPOINT_VECTOR => {
+                    // Skip breakpoint instruction (1 byte) if process is not being debugged
+                    // This matches Linux behavior: INT3 instructions are silently ignored
+                    self.rip += 1;
+                    // Skip the breakpoint instruction and continue execution
+                    // Enable interrupts before continuing the loop
+                    crate::asm::enable_irqs();
+                    continue;
+                }
+                IRQ_VECTOR_START..=IRQ_VECTOR_END => {
+                    handle_trap!(IRQ, vector as _);
+                    ReturnReason::Interrupt
+                }
+                _ => ReturnReason::Exception(ExceptionInfo {
+                    vector,
+                    error_code: self.error_code,
+                    cr2,
+                }),
+            };
 
-        crate::asm::enable_irqs();
-        ret
+            crate::asm::enable_irqs();
+            return ret;
+        }
     }
 }
 
