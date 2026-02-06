@@ -1,6 +1,6 @@
 [package]
 name = "axcpu"
-version = "0.3.0"
+version = "0.3.0-preview.1"
 edition = "2021"
 authors = [
     "Yuekai Jia <equation618@gmail.com>",
@@ -19,7 +19,7 @@ repository = "https://github.com/arceos-org/axcpu"
 documentation = "https://docs.rs/axcpu"
 keywords = ["arceos", "cpu", "architecture", "hal"]
 categories = ["embedded", "no-std", "hardware-support", "os"]
-rust-version = "1.88.0"
+rust-version = "1.82.0"
 
 [features]
 default = []
@@ -41,7 +41,7 @@ static_assertions = "1.1.0"
 lazyinit = "0.2"
 percpu = "0.2"
 x86 = "0.52"
-x86_64 = "0.15.2"
+x86_64 = { version = "0.15", default-features = false, features = ["instructions"] }
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 aarch64-cpu = "10.0"
