@@ -93,12 +93,10 @@ impl UserContext {
 
         const PAGE_FAULT_VECTOR: u8 = ExceptionVector::Page as u8;
 
-        let ret = match vector {
-            PAGE_FAULT_VECTOR if let Ok(flags) = err_code_to_flags(self.error_code) => {
-                ReturnReason::PageFault(va!(cr2), flags)
-            }
-            LEGACY_SYSCALL_VECTOR => ReturnReason::Syscall,
-            IRQ_VECTOR_START..=IRQ_VECTOR_END => {
+        let ret = match (vector, err_code_to_flags(self.error_code)) {
+            (PAGE_FAULT_VECTOR, Ok(flags)) => ReturnReason::PageFault(va!(cr2), flags),
+            (LEGACY_SYSCALL_VECTOR, _) => ReturnReason::Syscall,
+            (IRQ_VECTOR_START..=IRQ_VECTOR_END, _) => {
                 handle_trap!(IRQ, vector as _);
                 ReturnReason::Interrupt
             }

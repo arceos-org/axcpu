@@ -21,7 +21,7 @@ repository = "https://github.com/arceos-org/axcpu/tree/dev"
 documentation = "https://docs.rs/axcpu"
 keywords = ["arceos", "cpu", "architecture", "hal"]
 categories = ["embedded", "no-std", "hardware-support", "os"]
-rust-version = "1.82.0"
+rust-version = "1.88.0"
 
 [features]
 default = []
