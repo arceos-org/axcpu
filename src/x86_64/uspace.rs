@@ -154,7 +154,9 @@ pub(super) fn init_syscall() {
         fn syscall_entry();
     }
 
-    LStar::write(x86_64::VirtAddr::new_truncate(syscall_entry as usize as _));
+    LStar::write(x86_64::VirtAddr::new_truncate(
+        syscall_entry as *const () as usize as _,
+    ));
     Star::write(gdt::UCODE64, gdt::UDATA, gdt::KCODE64, gdt::KDATA).unwrap();
     SFMask::write(
         RFlags::TRAP_FLAG
