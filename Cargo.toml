@@ -33,7 +33,7 @@ linkme = "0.3"
 log = "0.4"
 cfg-if = "1.0"
 memory_addr = "0.4"
-page_table_entry = "0.5"
+page_table_entry = "0.6"
 static_assertions = "1.1.0"
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
@@ -51,7 +51,7 @@ riscv = "0.14"
 
 [target.'cfg(target_arch = "loongarch64")'.dependencies]
 loongArch64 = "0.2.4"
-page_table_multiarch = "0.5"
+page_table_multiarch = "0.6"
 
 [lints.clippy]
 new_without_default = "allow"
