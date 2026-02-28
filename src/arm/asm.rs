@@ -3,10 +3,21 @@
 use core::arch::asm;
 use memory_addr::{PhysAddr, VirtAddr};
 
-use aarch32_cpu::register::{Cpacr, Cpsr, Dfar, Dfsr, Ifar, Ifsr, Sctlr, TlbIAll};
+use aarch32_cpu::register::{Cpsr, Dfar, Dfsr, Ifar, Ifsr, Sctlr, TlbIAll};
 
 pub use aarch32_cpu::asm::{dmb, dsb, isb, sev, wfe, wfi};
-pub use aarch32_cpu::interrupt::{disable as disable_irqs, enable as enable_irqs};
+
+/// Allows the current CPU to respond to interrupts.
+#[inline]
+pub fn enable_irqs() {
+    unsafe { aarch32_cpu::interrupt::enable() };
+}
+
+/// Makes the current CPU to ignore interrupts.
+#[inline]
+pub fn disable_irqs() {
+    aarch32_cpu::interrupt::disable();
+}
 
 /// Returns whether the current CPU is allowed to respond to interrupts.
 ///
@@ -148,15 +159,16 @@ pub unsafe fn write_exception_vector_base(vbar: usize) {
 #[cfg(feature = "fp-simd")]
 #[inline]
 pub fn enable_fp() {
-    let mut cpacr = Cpacr::read();
-    // Enable CP10 and CP11 (VFP/NEON)
-    cpacr.0 |= (0b11 << 20) | (0b11 << 22);
     unsafe {
-        Cpacr::write(cpacr);
-    }
-    isb();
-    // Enable VFP by setting EN bit in FPEXC
-    unsafe {
+        let mut cpacr: u32;
+        // Read CPACR
+        asm!("mrc p15, 0, {}, c1, c0, 2", out(reg) cpacr);
+        // Enable CP10 and CP11 (VFP/NEON)
+        cpacr |= (0b11 << 20) | (0b11 << 22);
+        // Write CPACR
+        asm!("mcr p15, 0, {}, c1, c0, 2", in(reg) cpacr);
+        isb();
+        // Enable VFP by setting EN bit in FPEXC
         asm!("vmsr fpexc, {}", in(reg) 0x40000000u32);
     }
 }
@@ -216,4 +228,47 @@ pub unsafe fn write_sctlr(sctlr: Sctlr) {
 #[inline]
 pub fn read_cpsr() -> Cpsr {
     Cpsr::read()
+}
+
+/// Reads the timer counter (CNTPCT)
+#[inline]
+pub fn timer_counter() -> u64 {
+    let mut low: u32;
+    let mut high: u32;
+    // mrrc p15, 0, <Rt>, <Rt2>, c14
+    unsafe {
+        asm!("mrrc p15, 0, {}, {}, c14", out(reg) low, out(reg) high);
+    }
+    ((high as u64) << 32) | (low as u64)
+}
+
+/// Reads the timer frequency (CNTFRQ)
+#[inline]
+pub fn timer_frequency() -> u64 {
+    let freq: u32;
+    // mrc p15, 0, <Rt>, c14, c0, 0
+    unsafe {
+        asm!("mrc p15, 0, {}, c14, c0, 0", out(reg) freq);
+    }
+    freq as u64
+}
+
+/// Writes the timer compare value (CNTP_CVAL)
+#[inline]
+pub fn write_timer_comparevalue(val: u64) {
+    let low = (val & 0xFFFFFFFF) as u32;
+    let high = (val >> 32) as u32;
+    // mcrr p15, 2, <Rt>, <Rt2>, c14 (CNTP_CVAL)
+    unsafe {
+        asm!("mcrr p15, 2, {}, {}, c14", in(reg) low, in(reg) high);
+    }
+}
+
+/// Writes the timer control register (CNTP_CTL)
+#[inline]
+pub fn write_timer_control(val: u32) {
+    // mcr p15, 0, <Rt>, c14, c2, 1
+    unsafe {
+        asm!("mcr p15, 0, {}, c14, c2, 1", in(reg) val);
+    }
 }
