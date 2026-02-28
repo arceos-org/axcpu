@@ -1,8 +1,5 @@
 //! ARM32 (ARMv7-A) architecture-specific code.
 
-#[macro_use]
-mod macros;
-
 mod context;
 
 pub mod asm;

@@ -57,19 +57,15 @@ fn handle_irq_exception(_tf: &TrapFrame) {
 /// Handler for SVC (software interrupt) exceptions.
 #[unsafe(no_mangle)]
 fn handle_sync_exception(tf: &mut TrapFrame) {
-    // SVC instruction encoding: 0xEF000000 | imm24
-    // We can read the syscall number from the SVC instruction
-    let svc_num = unsafe {
-        let pc = tf.pc as *const u32;
-        (*pc) & 0x00FFFFFF
-    };
+    // In ARM EABI, the system call number is passed in register r7.
+    let svc_num = tf.r[7];
 
     trace!("SVC #{} at {:#x}", svc_num, tf.pc);
 
     // Handle syscall through the trap handler
     #[cfg(feature = "uspace")]
     {
-        crate::trap::handle_syscall(tf, svc_num as usize);
+        tf.r[0] = crate::trap::handle_syscall(tf, svc_num as usize) as u32;
     }
     #[cfg(not(feature = "uspace"))]
     {
@@ -80,21 +76,22 @@ fn handle_sync_exception(tf: &mut TrapFrame) {
     }
 }
 
+fn handle_page_fault(_tf: &TrapFrame, vaddr: usize, base_flags: PageFaultFlags) {
+    let cpsr = super::asm::read_cpsr();
+    let is_user = cpsr.mode() == Ok(aarch32_cpu::register::cpsr::ProcessorMode::Usr);
+
+    let mut access_flags = base_flags;
+    if is_user {
+        access_flags |= PageFaultFlags::USER;
+    }
+
+    handle_trap!(PAGE_FAULT, vaddr.into(), access_flags, is_user);
+}
+
 /// Handler for prefetch abort exceptions.
 #[unsafe(no_mangle)]
 fn handle_prefetch_abort_exception(tf: &mut TrapFrame) {
     let (fsr, far) = (super::asm::read_ifsr(), super::asm::read_ifar());
-
-    let cpsr = super::asm::read_cpsr();
-
-    let is_user = cpsr.mode() == Ok(aarch32_cpu::register::cpsr::ProcessorMode::Usr);
-
-    let access_flags = PageFaultFlags::EXECUTE
-        | if is_user {
-            PageFaultFlags::USER
-        } else {
-            PageFaultFlags::empty()
-        };
 
     let fsr_status = match fsr.status() {
         Ok(status) => status,
@@ -106,10 +103,7 @@ fn handle_prefetch_abort_exception(tf: &mut TrapFrame) {
 
     match fsr_status {
         FsrStatus::TranslationFaultFirstLevel | FsrStatus::TranslationFaultSecondLevel => {
-            let vaddr = va!(far.0 as usize);
-            if handle_trap!(PAGE_FAULT, vaddr, access_flags, is_user) {
-                return;
-            }
+            handle_page_fault(tf, far.0 as usize, PageFaultFlags::EXECUTE);
         }
         _ => {}
     }
@@ -120,19 +114,11 @@ fn handle_prefetch_abort_exception(tf: &mut TrapFrame) {
 fn handle_data_abort_exception(tf: &mut TrapFrame) {
     let (fsr, far) = (super::asm::read_dfsr(), super::asm::read_dfar());
 
-    let cpsr = super::asm::read_cpsr();
-
-    let is_user = cpsr.mode() == Ok(aarch32_cpu::register::cpsr::ProcessorMode::Usr);
-
-    let mut access_flags = if fsr.wnr() {
+    let base_flags = if fsr.wnr() {
         PageFaultFlags::WRITE
     } else {
         PageFaultFlags::READ
     };
-
-    if is_user {
-        access_flags |= PageFaultFlags::USER;
-    }
 
     let fsr_status = match fsr.status() {
         Ok(status) => status,
@@ -147,10 +133,7 @@ fn handle_data_abort_exception(tf: &mut TrapFrame) {
         | DfsrStatus::CommonFsr(FsrStatus::TranslationFaultSecondLevel)
         | DfsrStatus::CommonFsr(FsrStatus::PermissionFaultFirstLevel)
         | DfsrStatus::CommonFsr(FsrStatus::PermissionFaultSecondLevel) => {
-            let vaddr = va!(far.0 as usize);
-            if handle_trap!(PAGE_FAULT, vaddr, access_flags, is_user) {
-                return;
-            }
+            handle_page_fault(tf, far.0 as usize, base_flags);
         }
         _ => {}
     }

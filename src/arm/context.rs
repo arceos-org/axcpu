@@ -153,9 +153,9 @@ impl TaskContext {
 #[unsafe(naked)]
 unsafe extern "C" fn fpstate_save(_fp_state: &mut FpState) {
     naked_asm!(
-        include_fp_asm_macros!(),
         "
-        VPUSH_FP_REGS r0
+        vstm r0!, {{d0-d15}}
+        vstm r0!, {{d16-d31}}
         vmrs r1, fpscr
         str r1, [r0]
         bx lr"
@@ -166,9 +166,9 @@ unsafe extern "C" fn fpstate_save(_fp_state: &mut FpState) {
 #[unsafe(naked)]
 unsafe extern "C" fn fpstate_restore(_fp_state: &FpState) {
     naked_asm!(
-        include_fp_asm_macros!(),
         "
-        VPOP_FP_REGS r0
+        vldm r0!, {{d0-d15}}
+        vldm r0!, {{d16-d31}}
         ldr r1, [r0]
         vmsr fpscr, r1
         bx lr"
