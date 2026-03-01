@@ -11,6 +11,9 @@ extern crate memory_addr;
 #[macro_use]
 pub mod trap;
 
+#[cfg(any(doc, target_arch = "arm", target_arch = "aarch64"))]
+pub mod generic_timer;
+
 cfg_if::cfg_if! {
     if #[cfg(target_arch = "x86_64")] {
         mod x86_64;
