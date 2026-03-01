@@ -18,7 +18,7 @@ pub fn init_mmu(root_paddr: PhysAddr, phys_virt_offset: usize) {
 
     // Configure TLB
     const PS_4K: usize = 0x0c; // Page Size 4KB
-    let tlbrentry_paddr = pa!(handle_tlb_refill as usize - phys_virt_offset);
+    let tlbrentry_paddr = pa!(handle_tlb_refill as *const () as usize - phys_virt_offset);
     tlbidx::set_ps(PS_4K);
     stlbps::set_ps(PS_4K);
     tlbrehi::set_ps(PS_4K);
@@ -44,6 +44,6 @@ pub fn init_trap() {
         fn exception_entry_base();
     }
     unsafe {
-        crate::asm::write_exception_entry_base(exception_entry_base as usize);
+        crate::asm::write_exception_entry_base(exception_entry_base as *const () as usize);
     }
 }
