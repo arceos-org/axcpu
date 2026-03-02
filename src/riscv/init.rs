@@ -8,6 +8,6 @@ pub fn init_trap() {
         fn trap_vector_base();
     }
     unsafe {
-        crate::asm::write_trap_vector_base(trap_vector_base as usize);
+        crate::asm::write_trap_vector_base(trap_vector_base as *const () as usize);
     }
 }

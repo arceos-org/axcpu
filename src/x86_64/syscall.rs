@@ -25,7 +25,7 @@ pub fn init_syscall() {
         fn syscall_entry();
     }
     unsafe {
-        LStar::write(VirtAddr::new(syscall_entry as usize as _));
+        LStar::write(VirtAddr::new(syscall_entry as *const () as u64));
         Star::write(
             GdtStruct::UCODE64_SELECTOR,
             GdtStruct::UDATA_SELECTOR,

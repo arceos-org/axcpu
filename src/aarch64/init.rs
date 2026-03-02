@@ -103,7 +103,7 @@ pub fn init_trap() {
         fn exception_vector_base();
     }
     unsafe {
-        crate::asm::write_exception_vector_base(exception_vector_base as usize);
+        crate::asm::write_exception_vector_base(exception_vector_base as *const () as usize);
         crate::asm::write_user_page_table(0.into());
     }
 }

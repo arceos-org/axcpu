@@ -201,3 +201,45 @@ pub fn enable_fp() {
     CPACR_EL1.write(CPACR_EL1::FPEN::TrapNothing);
     barrier::isb(barrier::SY);
 }
+
+/// Returns the frequency of the system counter.
+#[inline]
+pub fn timer_frequency() -> u32 {
+    CNTFRQ_EL0.get() as u32
+}
+
+/// Returns the current value of the physical counter.
+#[inline]
+pub fn phys_timer_counter() -> u64 {
+    CNTPCT_EL0.get()
+}
+
+/// Enables or disables the physical timer.
+#[inline]
+pub fn phys_timer_enable(enabled: bool) {
+    CNTP_CTL_EL0.modify(CNTP_CTL_EL0::ENABLE.val(enabled as u64));
+}
+
+/// Sets the physical timer to fire an interrupt after the given number of ticks.
+#[inline]
+pub fn phys_timer_set_countdown(ticks: u32) {
+    CNTP_TVAL_EL0.set(ticks as u64);
+}
+
+/// Returns the current value of the virtual counter.
+#[inline]
+pub fn virt_timer_counter() -> u64 {
+    CNTVCT_EL0.get()
+}
+
+/// Enables or disables the virtual timer.
+#[inline]
+pub fn virt_timer_enable(enabled: bool) {
+    CNTV_CTL_EL0.modify(CNTV_CTL_EL0::ENABLE.val(enabled as u64));
+}
+
+/// Sets the virtual timer to fire an interrupt after the given number of ticks.
+#[inline]
+pub fn virt_timer_set_countdown(ticks: u32) {
+    CNTV_TVAL_EL0.set(ticks as u64);
+}

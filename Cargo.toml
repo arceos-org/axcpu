@@ -43,11 +43,11 @@ percpu = "0.2"
 lazyinit = "0.2"
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
-aarch64-cpu = "10.0"
-tock-registers = "0.9"
+aarch64-cpu = "11.2"
+tock-registers = "0.10"
 
 [target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
-riscv = "0.14"
+riscv = "0.16"
 
 [target.'cfg(target_arch = "loongarch64")'.dependencies]
 loongArch64 = "0.2.4"
