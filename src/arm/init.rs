@@ -48,7 +48,6 @@ pub unsafe fn init_mmu(root_paddr: PhysAddr) {
 /// This function performs the following initialization steps:
 /// 1. Sets the exception vector base address (VBAR) to our exception vector table
 /// 2. Sets `TTBR0` to 0 to block low address access (user space disabled initially)
-/// 3. Ensures proper CPU mode for exception handling
 ///
 /// After calling this function, the CPU is ready to handle:
 /// - IRQ interrupts
