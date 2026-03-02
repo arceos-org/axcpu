@@ -1,7 +1,7 @@
 //! Helper functions to initialize the CPU states on systems bootstrapping.
 
+use crate::asm;
 use memory_addr::PhysAddr;
-
 /// ARM32 processor modes.
 #[allow(dead_code)]
 pub mod mode {
@@ -47,35 +47,24 @@ pub mod cpsr {
 ///
 /// This function is unsafe as it changes the address translation configuration.
 pub unsafe fn init_mmu(root_paddr: PhysAddr) {
-    use aarch32_cpu::asm::{dsb, isb};
-    use aarch32_cpu::register::{Sctlr, TlbIAll};
-    use core::arch::asm;
-
-    let root = root_paddr.as_usize() as u32;
+    use aarch32_cpu::register::Sctlr;
 
     unsafe {
         // Set TTBR0 and TTBR1 to the same page table
-        // Note: VMSA-specific registers (TTBR0/1, TTBCR, DACR) are not abstracted in aarch32-cpu
-        // as it focuses on PMSA, so we use direct assembly here
-        asm!("mcr p15, 0, {}, c2, c0, 0", in(reg) root); // TTBR0
-        asm!("mcr p15, 0, {}, c2, c0, 1", in(reg) root); // TTBR1
+        asm::write_user_page_table(root_paddr); // TTBR0
+        asm::write_kernel_page_table(root_paddr); // TTBR1
 
-        // Set TTBCR to use TTBR0 for all addresses (N=1)
-        asm!("mcr p15, 0, {}, c2, c0, 2", in(reg) 0x1u32);
+        // Set TTBCR.N = 1: split VA space 2 GiB/2 GiB (low half via TTBR0, high half via TTBR1)
+        asm::write_ttbcr(0x1u32);
 
         // Set Domain Access Control Register (all domains to client mode)
         // Domain 0-15: 01 = Client (check page table permissions)
-        asm!("mcr p15, 0, {}, c3, c0, 0", in(reg) 0x55555555u32);
+        asm::write_dacr(0x55555555u32);
 
-        // Invalidate entire TLB using aarch32_cpu abstraction
-        TlbIAll::write();
+        // Invalidate entire TLB
+        asm::flush_tlb(None);
 
-        // Synchronization barriers using aarch32_cpu abstractions
-        // These include compiler fences for proper ordering
-        dsb();
-        isb();
-
-        // Enable MMU, data cache, and instruction cache using type-safe SCTLR abstraction
+        // Enable MMU, data cache, and instruction cache
         Sctlr::modify(|r| {
             r.set_m(true); // M bit: Enable MMU
             r.set_c(true); // C bit: Enable data cache
@@ -84,8 +73,8 @@ pub unsafe fn init_mmu(root_paddr: PhysAddr) {
 
         // Final synchronization barriers to ensure MMU is fully enabled
         // and instruction pipeline is flushed
-        dsb();
-        isb();
+        asm::dsb();
+        asm::isb();
     }
 }
 

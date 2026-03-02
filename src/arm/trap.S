@@ -32,8 +32,8 @@
  * On entry:
  *   - We are in SVC mode (switched from exception mode)
  *   - lr contains the adjusted return address
- *   - r0 contains the saved SPSR
- *   - r1, r2 are scratch
+ *   - r0-r12 contain the original GPR values to be saved
+ *   - r1 is scratch
  *
  * Uses the SVC stack for the trap frame.
  */
@@ -41,13 +41,14 @@
     // Allocate trap frame on SVC stack
     sub sp, sp, #TRAPFRAME_SIZE
 
-    // Save r0-r12 (we'll fix r0-r2 later)
+    // Save r0-r12
     stmia sp, {{r0-r12}}
 
     // Save the adjusted return address as PC
     str lr, [sp, #TRAPFRAME_PC]
 
-    // Save SPSR as CPSR
+    // Save SPSR as CPSR (read after saving GPRs to avoid clobbering r0)
+    mrs r0, spsr
     str r0, [sp, #TRAPFRAME_CPSR]
 
     // Save dummy sp and lr for now (kernel mode, no user context)
@@ -164,14 +165,8 @@ HANDLE_EXCEPTION _handle_undef, 4, invalid_exception, 1
  */
 _handle_svc:
     // Already in SVC mode, just save context
-    sub lr, lr, #4              // Point to SVC instruction
-    mrs r0, spsr                // Get SPSR
 
     SAVE_REGS_COMMON
-
-    // Restore correct r0 (was clobbered)
-    ldr r0, [sp, #TRAPFRAME_R0]
-    str r0, [sp, #TRAPFRAME_R0]
 
     // Call sync exception handler
     mov r0, sp

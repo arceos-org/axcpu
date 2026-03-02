@@ -3,7 +3,7 @@
 use core::arch::asm;
 use memory_addr::{PhysAddr, VirtAddr};
 
-use aarch32_cpu::register::{Cpacr, Cpsr, Dfar, Dfsr, Ifar, Ifsr, Sctlr, TlbIAll};
+use aarch32_cpu::register::*;
 
 pub use aarch32_cpu::asm::{dmb, dsb, isb, sev, wfe, wfi};
 
@@ -17,22 +17,6 @@ pub fn enable_irqs() {
 #[inline]
 pub fn disable_irqs() {
     aarch32_cpu::interrupt::disable();
-}
-
-/// Reads the current exception level / CPU mode.
-///
-/// Returns the mode bits from CPSR.
-#[inline]
-pub fn current_mode() -> u32 {
-    let cpsr = Cpsr::read();
-    cpsr.raw_value() & crate::init::cpsr::MODE_MASK
-}
-
-/// Checks if the current CPU is running in privileged mode.
-#[inline]
-pub fn is_privileged() -> bool {
-    let mode = current_mode();
-    mode != crate::init::mode::USR
 }
 
 /// Returns whether the current CPU is allowed to respond to interrupts.

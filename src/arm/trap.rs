@@ -76,9 +76,8 @@ fn handle_sync_exception(tf: &mut TrapFrame) {
     }
 }
 
-fn handle_page_fault(_tf: &TrapFrame, vaddr: usize, base_flags: PageFaultFlags) {
-    let cpsr = super::asm::read_cpsr();
-    let is_user = cpsr.mode() == Ok(aarch32_cpu::register::cpsr::ProcessorMode::Usr);
+fn handle_page_fault(tf: &TrapFrame, vaddr: usize, base_flags: PageFaultFlags) {
+    let is_user = (tf.cpsr & super::cpsr::MODE_MASK) == super::mode::USR;
 
     let mut access_flags = base_flags;
     if is_user {
@@ -93,20 +92,24 @@ fn handle_page_fault(_tf: &TrapFrame, vaddr: usize, base_flags: PageFaultFlags) 
 fn handle_prefetch_abort_exception(tf: &mut TrapFrame) {
     let (fsr, far) = (super::asm::read_ifsr(), super::asm::read_ifar());
 
-    let Ok(fsr_status) = fsr.status() else {
-        panic!(
+    let fsr_status = match fsr.status() {
+        Ok(status) => status,
+        Err(raw) => panic!(
             "Unknown IFSR status {:#x} in Prefetch Abort at {:#x}:\n{:#x?}",
-            fsr.status().unwrap_err(),
-            tf.pc,
-            tf
-        );
+            raw, tf.pc, tf
+        ),
     };
 
     match fsr_status {
         FsrStatus::TranslationFaultFirstLevel | FsrStatus::TranslationFaultSecondLevel => {
             handle_page_fault(tf, far.0 as usize, PageFaultFlags::EXECUTE);
         }
-        _ => {}
+        _ => {
+            panic!(
+                "Unhandled IFSR status {:?} in Prefetch Abort at {:#x} (IFAR={:#x}):\n{:#x?}",
+                fsr_status, tf.pc, far.0, tf
+            );
+        }
     }
 }
 
@@ -121,13 +124,12 @@ fn handle_data_abort_exception(tf: &mut TrapFrame) {
         PageFaultFlags::READ
     };
 
-    let Ok(fsr_status) = fsr.status() else {
-        panic!(
+    let fsr_status = match fsr.status() {
+        Ok(status) => status,
+        Err(raw) => panic!(
             "Unknown DFSR status {:#x} in Data Abort at {:#x}:\n{:#x?}",
-            fsr.status().unwrap_err(),
-            tf.pc,
-            tf
-        );
+            raw, tf.pc, tf
+        ),
     };
 
     match fsr_status {
@@ -137,6 +139,11 @@ fn handle_data_abort_exception(tf: &mut TrapFrame) {
         | DfsrStatus::CommonFsr(FsrStatus::PermissionFaultSecondLevel) => {
             handle_page_fault(tf, far.0 as usize, base_flags);
         }
-        _ => {}
+        _ => {
+            panic!(
+                "Unhandled DFSR status {:?} in Data Abort at {:#x}, FAR={:#x}:\n{:#x?}",
+                fsr_status, tf.pc, far.0, tf
+            );
+        }
     }
 }
