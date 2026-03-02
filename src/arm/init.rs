@@ -113,20 +113,3 @@ pub fn init_trap() {
         crate::asm::write_user_page_table(0.into());
     }
 }
-
-/// Reads the current exception level / CPU mode.
-///
-/// Returns the mode bits from CPSR.
-#[inline]
-pub fn current_mode() -> u32 {
-    let cpsr: u32;
-    unsafe { core::arch::asm!("mrs {}, cpsr", out(reg) cpsr) };
-    cpsr & cpsr::MODE_MASK
-}
-
-/// Checks if the current CPU is running in privileged mode.
-#[inline]
-pub fn is_privileged() -> bool {
-    let mode = current_mode();
-    mode != mode::USR
-}

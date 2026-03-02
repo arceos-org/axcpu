@@ -3,7 +3,7 @@
 use core::arch::asm;
 use memory_addr::{PhysAddr, VirtAddr};
 
-use aarch32_cpu::register::{Cpsr, Dfar, Dfsr, Ifar, Ifsr, Sctlr, TlbIAll};
+use aarch32_cpu::register::{Cpacr, Cpsr, Dfar, Dfsr, Ifar, Ifsr, Sctlr, TlbIAll};
 
 pub use aarch32_cpu::asm::{dmb, dsb, isb, sev, wfe, wfi};
 
@@ -17,6 +17,22 @@ pub fn enable_irqs() {
 #[inline]
 pub fn disable_irqs() {
     aarch32_cpu::interrupt::disable();
+}
+
+/// Reads the current exception level / CPU mode.
+///
+/// Returns the mode bits from CPSR.
+#[inline]
+pub fn current_mode() -> u32 {
+    let cpsr = Cpsr::read();
+    cpsr.raw_value() & crate::init::cpsr::MODE_MASK
+}
+
+/// Checks if the current CPU is running in privileged mode.
+#[inline]
+pub fn is_privileged() -> bool {
+    let mode = current_mode();
+    mode != crate::init::mode::USR
 }
 
 /// Returns whether the current CPU is allowed to respond to interrupts.
@@ -101,6 +117,34 @@ pub unsafe fn write_user_page_table(root_paddr: PhysAddr) {
     }
 }
 
+/// Writes the Translation Table Base Control Register (`TTBCR`).
+///
+/// # Safety
+///
+/// This function is unsafe as it changes the virtual memory address space.
+#[inline]
+pub unsafe fn write_ttbcr(ttbcr: u32) {
+    unsafe {
+        asm!("mcr p15, 0, {}, c2, c0, 2", in(reg) ttbcr);
+        dsb();
+        isb();
+    }
+}
+
+/// Writes the Domain Access Control Register (`DACR`).
+///
+/// # Safety
+///
+/// This function is unsafe as it changes the virtual memory address space.
+#[inline]
+pub unsafe fn write_dacr(dacr: u32) {
+    unsafe {
+        asm!("mcr p15, 0, {}, c3, c0, 0", in(reg) dacr);
+        dsb();
+        isb();
+    }
+}
+
 /// Flushes the TLB.
 ///
 /// If `vaddr` is [`None`], flushes the entire TLB. Otherwise, flushes the TLB
@@ -141,6 +185,15 @@ pub fn flush_dcache_line(vaddr: VirtAddr) {
     isb();
 }
 
+/// Reads the exception vector base address register (`VBAR`).
+#[inline]
+pub fn read_exception_vector_base() -> usize {
+    // VBAR: CP15, c12, CRn=12, CRm=0, Op1=0, Op2=0
+    let vbar: u32;
+    unsafe { asm!("mrc p15, 0, {}, c12, c0, 0", out(reg) vbar) };
+    vbar as usize
+}
+
 /// Writes exception vector base address register (`VBAR`).
 ///
 /// # Safety
@@ -159,27 +212,16 @@ pub unsafe fn write_exception_vector_base(vbar: usize) {
 #[cfg(feature = "fp-simd")]
 #[inline]
 pub fn enable_fp() {
+    let mut cpacr = Cpacr::read();
+    // Enable CP10 and CP11 (VFP/NEON)
+    cpacr.0 |= (0b11 << 20) | (0b11 << 22);
     unsafe {
-        let mut cpacr: u32;
-        // Read CPACR
-        asm!("mrc p15, 0, {}, c1, c0, 2", out(reg) cpacr);
-        // Enable CP10 and CP11 (VFP/NEON)
-        cpacr |= (0b11 << 20) | (0b11 << 22);
         // Write CPACR
-        asm!("mcr p15, 0, {}, c1, c0, 2", in(reg) cpacr);
+        Cpacr::write(cpacr);
         isb();
         // Enable VFP by setting EN bit in FPEXC
         asm!("vmsr fpexc, {}", in(reg) 0x40000000u32);
     }
-}
-
-/// Reads the exception vector base address register (`VBAR`).
-#[inline]
-pub fn read_exception_vector_base() -> usize {
-    // VBAR: CP15, c12, CRn=12, CRm=0, Op1=0, Op2=0
-    let vbar: u32;
-    unsafe { asm!("mrc p15, 0, {}, c12, c0, 0", out(reg) vbar) };
-    vbar as usize
 }
 
 /// Reads the Data Fault Status Register (DFSR).
