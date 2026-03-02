@@ -9,4 +9,3 @@ pub mod init;
 mod trap;
 
 pub use self::context::{FpState, TaskContext, TrapFrame};
-pub use self::init::{cpsr, mode};

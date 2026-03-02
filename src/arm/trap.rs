@@ -1,6 +1,10 @@
 //! ARM32 exception handling routines.
 
-use aarch32_cpu::register::{dfsr::DfsrStatus, ifsr::FsrStatus};
+use aarch32_cpu::register::{
+    cpsr::{Cpsr, ProcessorMode},
+    dfsr::DfsrStatus,
+    ifsr::FsrStatus,
+};
 
 use super::TrapFrame;
 use crate::trap::PageFaultFlags;
@@ -77,7 +81,7 @@ fn handle_sync_exception(tf: &mut TrapFrame) {
 }
 
 fn handle_page_fault(tf: &TrapFrame, vaddr: usize, base_flags: PageFaultFlags) {
-    let is_user = (tf.cpsr & super::cpsr::MODE_MASK) == super::mode::USR;
+    let is_user = Cpsr::new_with_raw_value(tf.cpsr).mode() == Ok(ProcessorMode::Usr);
 
     let mut access_flags = base_flags;
     if is_user {

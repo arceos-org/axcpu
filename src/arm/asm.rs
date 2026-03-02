@@ -258,13 +258,13 @@ pub fn read_cpsr() -> Cpsr {
 
 /// Reads the timer frequency (CNTFRQ)
 #[inline]
-pub fn timer_frequency() -> u64 {
+pub fn timer_frequency() -> u32 {
     let freq: u32;
     // mrc p15, 0, <Rt>, c14, c0, 0
     unsafe {
         asm!("mrc p15, 0, {}, c14, c0, 0", out(reg) freq);
     }
-    freq as u64
+    freq
 }
 
 /// Reads the timer counter (CNTPCT)
@@ -341,25 +341,5 @@ pub fn virt_timer_set_countdown(ticks: u32) {
     unsafe {
         asm!("mcr p15, 0, {}, c14, c3, 0", in(reg) ticks);
         isb();
-    }
-}
-
-/// Writes the timer compare value (CNTP_CVAL)
-#[inline]
-pub fn write_timer_comparevalue(val: u64) {
-    let low = (val & 0xFFFFFFFF) as u32;
-    let high = (val >> 32) as u32;
-    // mcrr p15, 2, <Rt>, <Rt2>, c14 (CNTP_CVAL)
-    unsafe {
-        asm!("mcrr p15, 2, {}, {}, c14", in(reg) low, in(reg) high);
-    }
-}
-
-/// Writes the timer control register (CNTP_CTL)
-#[inline]
-pub fn write_timer_control(val: u32) {
-    // mcr p15, 0, <Rt>, c14, c2, 1
-    unsafe {
-        asm!("mcr p15, 0, {}, c14, c2, 1", in(reg) val);
     }
 }
