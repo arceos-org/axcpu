@@ -256,18 +256,6 @@ pub fn read_cpsr() -> Cpsr {
     Cpsr::read()
 }
 
-/// Reads the timer counter (CNTPCT)
-#[inline]
-pub fn timer_counter() -> u64 {
-    let mut low: u32;
-    let mut high: u32;
-    // mrrc p15, 0, <Rt>, <Rt2>, c14
-    unsafe {
-        asm!("mrrc p15, 0, {}, {}, c14", out(reg) low, out(reg) high);
-    }
-    ((high as u64) << 32) | (low as u64)
-}
-
 /// Reads the timer frequency (CNTFRQ)
 #[inline]
 pub fn timer_frequency() -> u64 {
@@ -277,6 +265,83 @@ pub fn timer_frequency() -> u64 {
         asm!("mrc p15, 0, {}, c14, c0, 0", out(reg) freq);
     }
     freq as u64
+}
+
+/// Reads the timer counter (CNTPCT)
+#[inline]
+pub fn phys_timer_counter() -> u64 {
+    let mut low: u32;
+    let mut high: u32;
+    // mrrc p15, 0, <Rt>, <Rt2>, c14
+    unsafe {
+        asm!("mrrc p15, 0, {}, {}, c14", out(reg) low, out(reg) high);
+    }
+    ((high as u64) << 32) | (low as u64)
+}
+
+/// Enables or disables the physical timer (CNTP_CTL.ENABLE).
+#[inline]
+pub fn phys_timer_enable(enabled: bool) {
+    let mut ctl: u32;
+    unsafe {
+        // Read CNTP_CTL
+        asm!("mrc p15, 0, {}, c14, c2, 1", out(reg) ctl);
+        if enabled {
+            ctl |= 1;
+        } else {
+            ctl &= !1;
+        }
+        // Write CNTP_CTL
+        asm!("mcr p15, 0, {}, c14, c2, 1", in(reg) ctl);
+        isb();
+    }
+}
+
+/// Sets the physical timer to fire after the given number of ticks (CNTP_TVAL).
+#[inline]
+pub fn phys_timer_set_countdown(ticks: u32) {
+    unsafe {
+        asm!("mcr p15, 0, {}, c14, c2, 0", in(reg) ticks);
+        isb();
+    }
+}
+
+/// Returns the current value of the virtual counter (CNTVCT).
+#[inline]
+pub fn virt_timer_counter() -> u64 {
+    let low: u32;
+    let high: u32;
+    unsafe {
+        asm!("mrrc p15, 1, {}, {}, c14", out(reg) low, out(reg) high);
+    }
+    ((high as u64) << 32) | (low as u64)
+}
+
+/// Enables or disables the virtual timer (CNTV_CTL.ENABLE).
+#[inline]
+pub fn virt_timer_enable(enabled: bool) {
+    let mut ctl: u32;
+    unsafe {
+        // Read CNTV_CTL
+        asm!("mrc p15, 0, {}, c14, c3, 1", out(reg) ctl);
+        if enabled {
+            ctl |= 1;
+        } else {
+            ctl &= !1;
+        }
+        // Write CNTV_CTL
+        asm!("mcr p15, 0, {}, c14, c3, 1", in(reg) ctl);
+        isb();
+    }
+}
+
+/// Sets the virtual timer to fire after the given number of ticks (CNTV_TVAL).
+#[inline]
+pub fn virt_timer_set_countdown(ticks: u32) {
+    unsafe {
+        asm!("mcr p15, 0, {}, c14, c3, 0", in(reg) ticks);
+        isb();
+    }
 }
 
 /// Writes the timer compare value (CNTP_CVAL)
