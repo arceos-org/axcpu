@@ -51,12 +51,10 @@
     mrs r0, spsr
     str r0, [sp, #TRAPFRAME_CPSR]
 
-    // Save dummy sp and lr for now (kernel mode, no user context)
-    // For kernel exceptions, save current sp+TRAPFRAME_SIZE and lr
+    // Save current SVC sp and lr
     add r1, sp, #TRAPFRAME_SIZE
     str r1, [sp, #TRAPFRAME_SP]
-    mov r1, #0
-    str r1, [sp, #TRAPFRAME_LR]
+    str lr, [sp, #TRAPFRAME_LR]
 .endm
 
 /*
@@ -70,23 +68,20 @@
     // Disable IRQs during restore to prevent nesting issues
     cpsid i
 
-    // Load return address and saved CPSR
-    ldr lr, [sp, #TRAPFRAME_PC]
-    ldr r0, [sp, #TRAPFRAME_CPSR]
+    // Restore SVC lr first (it may be live state of interrupted kernel code)
+    ldr lr, [sp, #TRAPFRAME_LR]
 
     // Restore r1-r12 first
     add r1, sp, #4
     ldmia r1, {{r1-r12}}
 
-    // Deallocate trap frame
-    add sp, sp, #TRAPFRAME_SIZE
+    // Restore r0
+    ldr r0, [sp, #TRAPFRAME_R0]
 
-    // Restore SPSR from saved CPSR and r0
-    msr spsr_cxsf, r0
-    ldr r0, [sp, #-TRAPFRAME_SIZE]  // Restore r0
-
-    // Return from exception
-    movs pc, lr
+    // Return from exception using stacked PC/CPSR pair.
+    // Move sp to TrapFrame::pc then return via RFE.
+    add sp, sp, #TRAPFRAME_PC
+    rfeia sp!
 .endm
 
 .macro HANDLE_EXCEPTION name, lr_offset, handler, arg1
@@ -105,8 +100,7 @@
 
     add r0, sp, #TRAPFRAME_SIZE
     str r0, [sp, #TRAPFRAME_SP]
-    mov r0, #0
-    str r0, [sp, #TRAPFRAME_LR]
+    str lr, [sp, #TRAPFRAME_LR]
 
     mov r0, sp
     .ifnb \arg1
