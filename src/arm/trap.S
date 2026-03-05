@@ -27,7 +27,7 @@
 .equ TRAPFRAME_CPSR, 64
 
 /*
- * SAVE_REGS_COMMON: Save registers to the SVC mode stack
+ * SAVE_REGS_SVC: Save registers to the SVC mode stack
  *
  * On entry:
  *   - We are in SVC mode (switched from exception mode)
@@ -37,7 +37,7 @@
  *
  * Uses the SVC stack for the trap frame.
  */
-.macro SAVE_REGS_COMMON
+.macro SAVE_REGS_SVC
     // Allocate trap frame on SVC stack
     sub sp, sp, #TRAPFRAME_SIZE
 
@@ -160,7 +160,7 @@ HANDLE_EXCEPTION _handle_undef, 4, invalid_exception, 1
 _handle_svc:
     // Already in SVC mode, just save context
 
-    SAVE_REGS_COMMON
+    SAVE_REGS_SVC
 
     // Call sync exception handler
     mov r0, sp
