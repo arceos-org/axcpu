@@ -54,7 +54,11 @@
     // Save current SVC sp and lr
     add r1, sp, #TRAPFRAME_SIZE
     str r1, [sp, #TRAPFRAME_SP]
-    str lr, [sp, #TRAPFRAME_LR]
+
+    // Clear lr in trap frame to detect invalid returns
+    // TODO: User mode is not supported yet
+    mov r1, #0 
+    str r1, [sp, #TRAPFRAME_LR]
 .endm
 
 /*
@@ -69,6 +73,7 @@
     cpsid i
 
     // Restore SVC lr first (it may be live state of interrupted kernel code)
+    // TODO: User mode is not supported yet
     ldr lr, [sp, #TRAPFRAME_LR]
 
     // Restore r0-r12
@@ -91,7 +96,11 @@
 
     add r0, sp, #TRAPFRAME_SIZE
     str r0, [sp, #TRAPFRAME_SP]
-    str lr, [sp, #TRAPFRAME_LR]
+    
+    // Clear lr in trap frame to detect invalid returns
+    // TODO: User mode is not supported yet
+    mov r1, #0 
+    str r1, [sp, #TRAPFRAME_LR]
 
     mov r0, sp
     .ifnb \arg1
