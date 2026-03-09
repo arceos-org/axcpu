@@ -71,12 +71,8 @@
     // Restore SVC lr first (it may be live state of interrupted kernel code)
     ldr lr, [sp, #TRAPFRAME_LR]
 
-    // Restore r1-r12 first
-    add r1, sp, #4
-    ldmia r1, {{r1-r12}}
-
-    // Restore r0
-    ldr r0, [sp, #TRAPFRAME_R0]
+    // Restore r0-r12
+    ldmia sp, {{r0-r12}}
 
     // Return from exception using stacked PC/CPSR pair.
     // Move sp to TrapFrame::pc then return via RFE.
@@ -92,11 +88,6 @@
 
     sub sp, sp, #TRAPFRAME_SIZE - 8
     stmia sp, {{r0-r12}}
-
-    add r0, sp, #TRAPFRAME_SIZE - 8
-    ldmia r0, {{r1, r2}}
-    str r1, [sp, #TRAPFRAME_PC]
-    str r2, [sp, #TRAPFRAME_CPSR]
 
     add r0, sp, #TRAPFRAME_SIZE
     str r0, [sp, #TRAPFRAME_SP]
