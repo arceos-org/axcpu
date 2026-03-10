@@ -97,10 +97,10 @@
     add r0, sp, #TRAPFRAME_SIZE
     str r0, [sp, #TRAPFRAME_SP]
     
-    // Clear lr in trap frame to detect invalid returns
-    // TODO: User mode is not supported yet
-    mov r1, #0 
-    str r1, [sp, #TRAPFRAME_LR]
+    // After switching to SVC mode, `lr` is the banked SVC lr of the interrupted
+    // kernel context. Save it so RESTORE_REGS can resume the original call
+    // chain after the exception return.
+    str lr, [sp, #TRAPFRAME_LR]
 
     mov r0, sp
     .ifnb \arg1
