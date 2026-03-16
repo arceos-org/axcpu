@@ -108,6 +108,12 @@ fn handle_prefetch_abort_exception(tf: &mut TrapFrame) {
         FsrStatus::TranslationFaultFirstLevel | FsrStatus::TranslationFaultSecondLevel => {
             handle_page_fault(tf, far.0 as usize, PageFaultFlags::EXECUTE);
         }
+        FsrStatus::DebugEvent => {
+            // Treat BKPT as a handled breakpoint and continue at next instruction.
+            let is_thumb = (tf.cpsr & (1 << 5)) != 0;
+            let instr_len = if is_thumb { 2 } else { 4 };
+            tf.pc = tf.pc.wrapping_add(instr_len);
+        }
         _ => {
             panic!(
                 "Unhandled IFSR status {:?} in Prefetch Abort at {:#x} (IFAR={:#x}):\n{:#x?}",
