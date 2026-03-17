@@ -214,7 +214,7 @@ pub unsafe fn write_thread_pointer(tp: usize) {
 }
 
 /// Reads the thread pointer of the current CPU (`TPIDRURO`).
-/// `__aeabi_read_tp` is used by the Rust compiler to 
+/// `__aeabi_read_tp` is used by the Rust compiler to
 /// implement thread-local storage (TLS) access on ARM32.
 #[unsafe(no_mangle)]
 extern "C" fn __aeabi_read_tp() -> *mut u8 {
