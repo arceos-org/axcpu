@@ -127,7 +127,7 @@ pub fn sstatus_read() -> usize {
 pub fn flush_icache() {
     riscv::asm::fence_i();
 
-    /// Flushes the instruction cache for T-Head C9xx cores.
+    // Flushes the instruction cache for T-Head C9xx cores.
     #[cfg(feature = "sg2002")]
     unsafe {
         // Ensure instruction fetch sees latest memory contents.

@@ -25,17 +25,27 @@ impl UserContext {
     /// Creates a new context with the given entry point, user stack pointer,
     /// and the argument.
     pub fn new(entry: usize, ustack_top: VirtAddr, arg0: usize) -> Self {
-        let flags = 0;
-        #[cfg(feature = "fp-simd")]
-        let flags =  (0x3 << 23); // sstatus.VS
-
-        let mut sstatus = Sstatus::from_bits(0 | flags);
+        let mut sstatus = Sstatus::from_bits(0);
         sstatus.set_spie(true); // enable interrupts
         sstatus.set_sum(true); // enable user memory access in supervisor mode
         #[cfg(feature = "fp-simd")]
         sstatus.set_fs(FS::Initial); // set the FPU to initial state
+        info!(
+            "UserContext new sstatus={:#x}, BITMASK={:#x}",
+            sstatus.bits(),
+            Sstatus::BITMASK
+        );
 
-        debug!("UserContext new sstatus={:#x}", sstatus.bits());
+        #[cfg(feature = "sg2002")]
+        unsafe {
+            let set_sstatus = &mut sstatus as *mut Sstatus as *mut usize;
+            let old_bits = *set_sstatus;
+
+            info!("Setting sstatus.VS for sg2002");
+            *set_sstatus = old_bits | (0x3 << 23);
+            debug!("Set sstatus new bits: {:#x}", *set_sstatus);
+        }
+
         Self(TrapFrame {
             regs: GeneralRegisters {
                 a0: arg0,
