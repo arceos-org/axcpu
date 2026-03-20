@@ -13,7 +13,7 @@ pub use super::syscall::init_syscall;
 ///
 /// [`percpu`]: https://docs.rs/percpu/latest/percpu/index.html
 pub fn init_percpu(cpu_id: usize) {
-    percpu::init();
+    percpu::init_in_place().expect("failed to initialize per-CPU data area");
     percpu::init_percpu_reg(cpu_id);
 }
 
