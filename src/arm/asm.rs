@@ -192,15 +192,15 @@ pub unsafe fn write_exception_vector_base(vbar: usize) {
     isb();
 }
 
-/// Reads the thread pointer of the current CPU (`TPIDRURW`).
+/// Reads the thread pointer of the current CPU (`TPIDRURO`).
 ///
 /// It is used to implement TLS (Thread Local Storage).
 #[inline]
 pub fn read_thread_pointer() -> usize {
-    Tpidrurw::read().0 as usize
+    Tpidruro::read().0 as usize
 }
 
-/// Writes the thread pointer of the current CPU (`TPIDRURW`).
+/// Writes the thread pointer of the current CPU (`TPIDRURO`).
 ///
 /// It is used to implement TLS (Thread Local Storage).
 ///
@@ -209,16 +209,8 @@ pub fn read_thread_pointer() -> usize {
 /// This function is unsafe as it changes the CPU states.
 #[inline]
 pub unsafe fn write_thread_pointer(tp: usize) {
-    unsafe { Tpidrurw::write(Tpidrurw(tp as u32)) };
+    unsafe { Tpidruro::write(Tpidruro(tp as u32)) };
     isb();
-}
-
-/// Reads the thread pointer of the current CPU (`TPIDRURO`).
-/// `__aeabi_read_tp` is used by the Rust compiler to
-/// implement thread-local storage (TLS) access on ARM32.
-#[unsafe(no_mangle)]
-extern "C" fn __aeabi_read_tp() -> *mut u8 {
-    read_thread_pointer() as *mut u8
 }
 
 /// Enable FP/SIMD instructions by setting the appropriate bits in CPACR.
