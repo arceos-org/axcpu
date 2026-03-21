@@ -68,10 +68,10 @@ impl FpState {
     /// Enables FP/SIMD instructions before issuing FP register operations.
     ///
     /// On some boot paths (e.g., with different firmware), `sstatus.FS` may be
-    /// `Off`, where FP instructions trap as `IllegalInstruction`
+    /// `Off`, where FP instructions trap as `IllegalInstruction`.
     #[inline]
     fn enable_fp_instructions() {
-        unsafe { sstatus::set_fs(FS::Dirty) };
+        unsafe { sstatus::set_fs(FS::Initial) };
     }
 
     /// Restores the floating-point registers from this FP state
