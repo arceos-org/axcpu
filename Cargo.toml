@@ -1,11 +1,12 @@
 [package]
 name = "axcpu"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 authors = [
     "Yuekai Jia <equation618@gmail.com>",
     "Youjie Zheng <Azure_stars@126.com>",
     "yfblock <321353225@qq.com>",
+    "Debin <luodebin@kylinos.cn>",
     "yanjuguang <coolyanjg@163.com>",
     "Grow Zheng <hhmcn@outlook.com>",
     "Su Mingxian <aarkegz@gmail.com>",
@@ -61,4 +62,10 @@ new_without_default = "allow"
 
 [package.metadata.docs.rs]
 all-features = true
-targets = ["x86_64-unknown-none", "aarch64-unknown-none-softfloat", "riscv64gc-unknown-none-elf", "loongarch64-unknown-none-softfloat"]
+targets = [
+    "x86_64-unknown-none",
+    "aarch64-unknown-none-softfloat",
+    "riscv64gc-unknown-none-elf",
+    "loongarch64-unknown-none-softfloat",
+    "armv7a-none-eabi",
+]
