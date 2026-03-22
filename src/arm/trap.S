@@ -1,0 +1,204 @@
+/*
+ * ARM32 Exception Vector Table and Trap Handlers
+ *
+ * ARM32 has 7 exception types at fixed offsets from the vector base:
+ *   0x00: Reset
+ *   0x04: Undefined Instruction
+ *   0x08: Software Interrupt (SVC)
+ *   0x0C: Prefetch Abort
+ *   0x10: Data Abort
+ *   0x14: Reserved
+ *   0x18: IRQ
+ *   0x1C: FIQ
+ *
+ * TrapFrame layout (17 words = 68 bytes):
+ *   0x00-0x30: r0-r12 (13 registers)
+ *   0x34: sp (user/prev mode)
+ *   0x38: lr (user/prev mode)
+ *   0x3C: pc (return address)
+ *   0x40: cpsr (saved program status)
+ */
+
+.equ TRAPFRAME_SIZE, 68
+.equ TRAPFRAME_R0,   0
+.equ TRAPFRAME_SP,   52
+.equ TRAPFRAME_LR,   56
+.equ TRAPFRAME_PC,   60
+.equ TRAPFRAME_CPSR, 64
+
+/*
+ * SAVE_REGS_SVC: Save registers to the SVC mode stack
+ *
+ * On entry:
+ *   - We are in SVC mode (switched from exception mode)
+ *   - lr contains the adjusted return address
+ *   - r0-r12 contain the original GPR values to be saved
+ *   - r1 is scratch
+ *
+ * Uses the SVC stack for the trap frame.
+ */
+.macro SAVE_REGS_SVC
+    // Allocate trap frame on SVC stack
+    sub sp, sp, #TRAPFRAME_SIZE
+
+    // Save r0-r12
+    stmia sp, {{r0-r12}}
+
+    // Save the adjusted return address as PC
+    str lr, [sp, #TRAPFRAME_PC]
+
+    // Save SPSR as CPSR (read after saving GPRs to avoid clobbering r0)
+    mrs r0, spsr
+    str r0, [sp, #TRAPFRAME_CPSR]
+
+    // Save current SVC sp and lr
+    add r1, sp, #TRAPFRAME_SIZE
+    str r1, [sp, #TRAPFRAME_SP]
+
+    // Clear lr in trap frame to detect invalid returns
+    // TODO: User mode is not supported yet
+    mov r1, #0 
+    str r1, [sp, #TRAPFRAME_LR]
+.endm
+
+/*
+ * RESTORE_REGS: Restore context and return from exception
+ *
+ * On entry:
+ *   - sp points to TrapFrame
+ *   - We are in SVC mode
+ */
+.macro RESTORE_REGS
+    // Disable IRQs during restore to prevent nesting issues
+    cpsid i
+
+    // Restore SVC lr first (it may be live state of interrupted kernel code)
+    // TODO: User mode is not supported yet
+    ldr lr, [sp, #TRAPFRAME_LR]
+
+    // Restore r0-r12
+    ldmia sp, {{r0-r12}}
+
+    // Return from exception using stacked PC/CPSR pair.
+    // Move sp to TrapFrame::pc then return via RFE.
+    add sp, sp, #TRAPFRAME_PC
+    rfeia sp!
+.endm
+
+.macro HANDLE_EXCEPTION name, lr_offset, handler, arg1
+\name:
+    sub lr, lr, #\lr_offset
+    srsdb sp!, #0x13
+    cps #0x13
+
+    sub sp, sp, #TRAPFRAME_SIZE - 8
+    stmia sp, {{r0-r12}}
+
+    add r0, sp, #TRAPFRAME_SIZE
+    str r0, [sp, #TRAPFRAME_SP]
+    
+    // After switching to SVC mode, `lr` is the banked SVC lr of the interrupted
+    // kernel context. Save it so RESTORE_REGS can resume the original call
+    // chain after the exception return.
+    str lr, [sp, #TRAPFRAME_LR]
+
+    mov r0, sp
+    .ifnb \arg1
+    mov r1, #\arg1
+    .endif
+    bl \handler
+    b .Lexception_return
+.endm
+
+/*
+ * Exception Vector Table
+ *
+ * Each entry must be exactly 4 bytes (one instruction).
+ * We use LDR pc, [pc, #offset] to load the handler address from a table.
+ */
+.section .text
+.align 5
+.global exception_vector_base
+exception_vector_base:
+    ldr pc, _vector_reset           // 0x00: Reset
+    ldr pc, _vector_undef           // 0x04: Undefined Instruction
+    ldr pc, _vector_svc             // 0x08: SVC (Software Interrupt)
+    ldr pc, _vector_prefetch_abort  // 0x0C: Prefetch Abort
+    ldr pc, _vector_data_abort      // 0x10: Data Abort
+    ldr pc, _vector_reserved        // 0x14: Reserved
+    ldr pc, _vector_irq             // 0x18: IRQ
+    ldr pc, _vector_fiq             // 0x1C: FIQ
+
+// Handler address table (after the vector table)
+.align 2
+_vector_reset:          .word _handle_reset
+_vector_undef:          .word _handle_undef
+_vector_svc:            .word _handle_svc
+_vector_prefetch_abort: .word _handle_prefetch_abort
+_vector_data_abort:     .word _handle_data_abort
+_vector_reserved:       .word _handle_reserved
+_vector_irq:            .word _handle_irq
+_vector_fiq:            .word _handle_fiq
+
+/*
+ * Reset Handler
+ * Should not be reached during normal operation.
+ */
+_handle_reset:
+    b .
+
+/*
+ * Undefined Instruction Handler
+ * LR_und = address of undefined instruction + 4
+ */
+HANDLE_EXCEPTION _handle_undef, 4, invalid_exception, 1
+
+/*
+ * SVC Handler
+ * LR_svc = address of SVC instruction + 4
+ */
+_handle_svc:
+    // Already in SVC mode, just save context
+
+    SAVE_REGS_SVC
+
+    // Call sync exception handler
+    mov r0, sp
+    bl handle_sync_exception
+    b .Lexception_return
+
+/*
+ * Prefetch Abort Handler
+ * LR_abt = address of aborted instruction + 4
+ */
+HANDLE_EXCEPTION _handle_prefetch_abort, 4, handle_prefetch_abort_exception
+
+/*
+ * Data Abort Handler
+ * LR_abt = address of aborted instruction + 8
+ */
+HANDLE_EXCEPTION _handle_data_abort, 8, handle_data_abort_exception
+
+/*
+ * Reserved - should never happen
+ */
+_handle_reserved:
+    b .
+
+/*
+ * IRQ Handler
+ * LR_irq = address of next instruction to execute + 4
+ */
+HANDLE_EXCEPTION _handle_irq, 4, handle_irq_exception
+
+/*
+ * FIQ Handler
+ * LR_fiq = address of next instruction to execute + 4
+ */
+HANDLE_EXCEPTION _handle_fiq, 4, invalid_exception, 7
+
+/*
+ * Common exception return path
+ */
+.Lexception_return:
+    RESTORE_REGS

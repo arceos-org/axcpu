@@ -39,12 +39,15 @@ static_assertions = "1.1.0"
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 x86 = "0.52"
 x86_64 = "0.15.2"
-percpu = "0.2"
+percpu = "0.3"
 lazyinit = "0.2"
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 aarch64-cpu = "11.2"
 tock-registers = "0.10"
+
+[target.'cfg(target_arch = "arm")'.dependencies]
+aarch32-cpu = "0.2.0"
 
 [target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
 riscv = "0.16"
