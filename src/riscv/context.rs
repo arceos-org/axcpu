@@ -94,6 +94,8 @@ impl FpState {
             // after saving, we set the FP state to clean
             self.fs = FS::Clean;
         }
+        // set the FP state to the next task's FP state
+        unsafe { sstatus::set_fs(next_fp_state.fs) };
         // restore the next task's FP state
         match next_fp_state.fs {
             FS::Clean => next_fp_state.restore(), // the next task's FP state is clean, we should restore it
@@ -101,7 +103,6 @@ impl FpState {
             FS::Off => {}                         // do nothing
             FS::Dirty => unreachable!("FP state of the next task should not be dirty"),
         }
-        unsafe { sstatus::set_fs(next_fp_state.fs) }; // set the FP state to the next task's FP state
     }
 }
 
