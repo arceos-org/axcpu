@@ -65,15 +65,6 @@ impl Default for FpState {
 
 #[cfg(feature = "fp-simd")]
 impl FpState {
-    /// Enables FP/SIMD instructions before issuing FP register operations.
-    ///
-    /// On some boot paths (e.g., with different firmware), `sstatus.FS` may be
-    /// `Off`, where FP instructions trap as `IllegalInstruction`.
-    #[inline]
-    fn enable_fp_instructions() {
-        unsafe { sstatus::set_fs(FS::Initial) };
-    }
-
     /// Restores the floating-point registers from this FP state
     #[inline]
     pub fn restore(&self) {
@@ -105,20 +96,15 @@ impl FpState {
             // after saving, we set the FP state to clean
             self.fs = FS::Clean;
         }
+        // set the FP state to the next task's FP state.
+        unsafe { sstatus::set_fs(next_fp_state.fs) };
         // restore the next task's FP state
         match next_fp_state.fs {
-            FS::Clean => {
-                FpState::enable_fp_instructions();
-                next_fp_state.restore(); // the next task's FP state is clean, we should restore it
-            }
-            FS::Initial => {
-                FpState::enable_fp_instructions();
-                FpState::clear(); // restore the FP state as constant values(all 0)
-            }
-            FS::Off => {} // do nothing
+            FS::Clean => next_fp_state.restore(), // the next task's FP state is clean, we should restore it
+            FS::Initial => FpState::clear(),      // restore the FP state as constant values(all 0)
+            FS::Off => {}                         // do nothing
             FS::Dirty => unreachable!("FP state of the next task should not be dirty"),
         }
-        unsafe { sstatus::set_fs(next_fp_state.fs) }; // set the FP state to the next task's FP state
     }
 }
 
