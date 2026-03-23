@@ -2,9 +2,6 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
-      - 'v*.*.*-pre.*'
 
 permissions:
   contents: write
@@ -24,80 +21,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Validate tag is on main branch
-        shell: bash
-        run: |
-          set -e
-
-          TAG="${{ github.ref_name }}"
-          TAG_COMMIT=$(git rev-list -n 1 "$TAG")
-
-          git fetch origin main
-
-          MAIN_HEAD=$(git rev-parse origin/main)
-
-          echo "Tag:        $TAG"
-          echo "Tag commit: $TAG_COMMIT"
-          echo "main HEAD:  $MAIN_HEAD"
-
-          if [ "$TAG_COMMIT" != "$MAIN_HEAD" ]; then
-            echo "❌ release tag must be created from main HEAD"
-            exit 1
-          fi
-          echo "✅ release tag validated on main"
-
-      - name: Validate version consistency
-        shell: bash
-        run: |
-          set -e
-
-          TAG="${{ github.ref_name }}"
-          # Remove 'v' prefix from tag
-          TAG_VERSION="${TAG#v}"
-
-          # Get version from Cargo.toml
-          CARGO_VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
-
-          echo "Tag version:   $TAG_VERSION"
-          echo "Cargo version: $CARGO_VERSION"
-
-          if [ "$TAG_VERSION" != "$CARGO_VERSION" ]; then
-            echo "❌ Tag version ($TAG_VERSION) does not match Cargo.toml version ($CARGO_VERSION)"
-            exit 1
-          fi
-          echo "✅ Version consistency validated"
-
-      - name: Install Cargo
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Generate release note
-        id: gen-release-note
-        shell: bash
-        run: |
-          {
-            echo "release_note<<EOF"
-            cargo tree --depth 0 | while read -r line; do
-              if [ ! -z "$line" ]; then
-                crate=$(echo "$line" | cut -d' ' -f1)
-                version=$(echo "$line" | cut -d' ' -f2 | tr -d '()')
-                version=${version#v}
-                echo "- $crate ([crates.io](https://crates.io/crates/$crate/$version) | [documentation](https://docs.rs/$crate/$version))"
-              fi
-            done
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-pre.') }}
-          body: ${{ steps.gen-release-note.outputs.release_note }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-crates:
     name: Publish to crates.io
@@ -109,4 +33,8 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
 
       - name: Publish to crates.io
-        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+            pwd
+            ls -al
+            ls -al ..
+            cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }} -n
