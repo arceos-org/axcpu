@@ -10,5 +10,6 @@ This crate provides privileged instruction and structure abstractions for variou
 
 * x86_64
 * AArch64
+* ARMv7-A
 * RISC-V
 * LoongArch64
