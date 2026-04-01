@@ -1,7 +1,9 @@
+use core::panic;
+
 use x86::{controlregs::cr2, irq::*};
 use x86_64::structures::idt::PageFaultErrorCode;
 
-use super::{TrapFrame, gdt};
+use super::{gdt, TrapFrame};
 use crate::trap::PageFaultFlags;
 
 core::arch::global_asm!(
@@ -38,11 +40,33 @@ fn handle_page_fault(tf: &mut TrapFrame) {
     );
 }
 
+fn handle_breakpoint(tf: &mut TrapFrame) {
+    debug!("#BP @ {:#x} ", tf.rip);
+    if handle_trap!(BREAK_HANDLER, tf) {
+        return;
+    }
+}
+
+fn handle_debug(tf: &mut TrapFrame) {
+    debug!("#DB @ {:#x} ", tf.rip);
+    if handle_trap!(DEBUG_HANDLER, tf) {
+        return;
+    }
+    panic!(
+        "Unhandled #DB @ {:#x}, error_code={:#x}:\n{:#x?}\n{}",
+        tf.rip,
+        tf.error_code,
+        tf,
+        tf.backtrace()
+    );
+}
+
 #[unsafe(no_mangle)]
 fn x86_trap_handler(tf: &mut TrapFrame) {
     match tf.vector as u8 {
         PAGE_FAULT_VECTOR => handle_page_fault(tf),
-        BREAKPOINT_VECTOR => debug!("#BP @ {:#x} ", tf.rip),
+        BREAKPOINT_VECTOR => handle_breakpoint(tf),
+        DEBUG_VECTOR => handle_debug(tf),
         GENERAL_PROTECTION_FAULT_VECTOR => {
             panic!(
                 "#GP @ {:#x}, error_code={:#x}:\n{:#x?}\n{}",
