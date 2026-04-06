@@ -2,8 +2,8 @@
 use riscv::register::sstatus;
 use riscv::{
     interrupt::{
-        Trap,
         supervisor::{Exception as E, Interrupt as I},
+        Trap,
     },
     register::{scause, stval},
 };

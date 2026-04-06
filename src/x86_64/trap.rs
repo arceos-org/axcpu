@@ -42,9 +42,7 @@ fn handle_page_fault(tf: &mut TrapFrame) {
 
 fn handle_breakpoint(tf: &mut TrapFrame) {
     debug!("#BP @ {:#x} ", tf.rip);
-    if handle_trap!(BREAK_HANDLER, tf) {
-        return;
-    }
+    if handle_trap!(BREAK_HANDLER, tf) {}
 }
 
 fn handle_debug(tf: &mut TrapFrame) {

@@ -7,14 +7,14 @@ use memory_addr::VirtAddr;
 use riscv::register::sstatus::FS;
 use riscv::{
     interrupt::{
-        Trap,
         supervisor::{Exception as E, Interrupt as I},
+        Trap,
     },
     register::{scause, sstatus::Sstatus, stval},
 };
 
 pub use crate::uspace_common::{ExceptionKind, ReturnReason};
-use crate::{GeneralRegisters, TrapFrame, trap::PageFaultFlags};
+use crate::{trap::PageFaultFlags, GeneralRegisters, TrapFrame};
 
 /// Context to enter user space.
 #[derive(Debug, Clone, Copy)]

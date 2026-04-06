@@ -2,13 +2,13 @@
 
 use core::ops::{Deref, DerefMut};
 
-use aarch64_cpu::registers::{ESR_EL1, FAR_EL1, Readable};
+use aarch64_cpu::registers::{Readable, ESR_EL1, FAR_EL1};
 use memory_addr::VirtAddr;
 use tock_registers::LocalRegisterCopy;
 
-use super::trap::{TrapKind, is_valid_page_fault};
+use super::trap::{is_valid_page_fault, TrapKind};
 pub use crate::uspace_common::{ExceptionKind, ReturnReason};
-use crate::{TrapFrame, trap::PageFaultFlags};
+use crate::{trap::PageFaultFlags, TrapFrame};
 
 /// Context to enter user space.
 #[repr(C, align(16))]
@@ -149,7 +149,9 @@ impl ExceptionInfo {
     /// Returns a generalized kind of this exception.
     pub fn kind(&self) -> ExceptionKind {
         match self.esr.read_as_enum(ESR_EL1::EC) {
-            Some(ESR_EL1::EC::Value::Brk64 | ESR_EL1::EC::Value::Bkpt32) => ExceptionKind::Breakpoint,
+            Some(ESR_EL1::EC::Value::Brk64 | ESR_EL1::EC::Value::Bkpt32) => {
+                ExceptionKind::Breakpoint
+            }
             Some(ESR_EL1::EC::Value::IllegalExecutionState) => ExceptionKind::IllegalInstruction,
             Some(ESR_EL1::EC::Value::PCAlignmentFault)
             | Some(ESR_EL1::EC::Value::SPAlignmentFault) => ExceptionKind::Misaligned,

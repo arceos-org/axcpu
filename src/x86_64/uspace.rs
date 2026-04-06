@@ -13,10 +13,10 @@ use x86_64::{
 };
 
 use super::{
-    TrapFrame,
     asm::{read_thread_pointer, write_thread_pointer},
     gdt,
-    trap::{IRQ_VECTOR_END, IRQ_VECTOR_START, LEGACY_SYSCALL_VECTOR, err_code_to_flags},
+    trap::{err_code_to_flags, IRQ_VECTOR_END, IRQ_VECTOR_START, LEGACY_SYSCALL_VECTOR},
+    TrapFrame,
 };
 pub use crate::uspace_common::{ExceptionKind, ReturnReason};
 

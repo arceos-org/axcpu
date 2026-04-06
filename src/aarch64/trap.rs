@@ -8,9 +8,9 @@ use crate::trap::PageFaultFlags;
 #[derive(Debug)]
 pub(super) enum TrapKind {
     Synchronous = 0,
-    Irq         = 1,
-    Fiq         = 2,
-    SError      = 3,
+    Irq = 1,
+    Fiq = 2,
+    SError = 3,
 }
 
 #[repr(u8)]
