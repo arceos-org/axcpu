@@ -1,11 +1,11 @@
 use x86_64::{
-    PrivilegeLevel,
     instructions::tables::load_tss,
-    registers::segmentation::{CS, Segment, SegmentSelector},
+    registers::segmentation::{Segment, SegmentSelector, CS},
     structures::{
         gdt::{Descriptor, GlobalDescriptorTable},
         tss::TaskStateSegment,
     },
+    PrivilegeLevel,
 };
 
 #[percpu::def_percpu]

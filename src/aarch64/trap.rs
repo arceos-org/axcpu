@@ -8,9 +8,9 @@ use crate::trap::PageFaultFlags;
 #[derive(Debug)]
 pub(super) enum TrapKind {
     Synchronous = 0,
-    Irq         = 1,
-    Fiq         = 2,
-    SError      = 3,
+    Irq = 1,
+    Fiq = 2,
+    SError = 3,
 }
 
 #[repr(u8)]
@@ -68,6 +68,13 @@ fn esr_value() -> u64 {
     {
         ESR_EL2.get()
     }
+}
+
+fn handle_breakpoint(tf: &mut TrapFrame) {
+    if handle_trap!(BREAK_HANDLER, tf) {
+        return;
+    }
+    tf.elr += 4;
 }
 
 fn handle_page_fault(tf: &mut TrapFrame, access_flags: PageFaultFlags) {
@@ -162,12 +169,12 @@ fn aarch64_trap_handler(tf: &mut TrapFrame, kind: TrapKind, source: TrapSource) 
                 #[cfg(not(feature = "arm-el2"))]
                 Some(ESR_EL1::EC::Value::Brk64) => {
                     debug!("BRK #{:#x} @ {:#x} ", iss, tf.elr);
-                    tf.elr += 4;
+                    handle_breakpoint(tf);
                 }
                 #[cfg(feature = "arm-el2")]
                 Some(ESR_EL2::EC::Value::Brk64) => {
                     debug!("BRK #{:#x} @ {:#x} ", iss, tf.elr);
-                    tf.elr += 4;
+                    handle_breakpoint(tf);
                 }
                 e => {
                     let vaddr = va!(fault_addr());

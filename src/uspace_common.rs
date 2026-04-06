@@ -1,6 +1,6 @@
 use memory_addr::VirtAddr;
 
-use crate::{TrapFrame, trap::PageFaultFlags, uspace::ExceptionInfo};
+use crate::{trap::PageFaultFlags, uspace::ExceptionInfo, TrapFrame};
 
 /// A reason as to why the control of the CPU is returned from
 /// the user space to the kernel.
@@ -21,6 +21,9 @@ pub enum ReturnReason {
 /// A generalized kind for [`ExceptionInfo`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExceptionKind {
+    #[cfg(target_arch = "x86_64")]
+    /// A debug exception.
+    Debug,
     /// A breakpoint exception.
     Breakpoint,
     /// An illegal instruction exception.
@@ -50,7 +53,7 @@ impl ExceptionTableEntry {
         #[cfg(target_arch = "aarch64")]
         {
             let base = (&self.from as *const i32) as isize;
-            return (base + self.from as isize) as usize;
+            (base + self.from as isize) as usize
         }
 
         #[cfg(not(target_arch = "aarch64"))]
@@ -64,7 +67,7 @@ impl ExceptionTableEntry {
         #[cfg(target_arch = "aarch64")]
         {
             let base = (&self.to as *const i32) as isize;
-            return (base + self.to as isize) as usize;
+            (base + self.to as isize) as usize
         }
 
         #[cfg(not(target_arch = "aarch64"))]
