@@ -70,7 +70,8 @@ fn err_code_to_flags(err_code: u64) -> Result<PageFaultFlags, u64> {
     let code = PageFaultErrorCode::from_bits_truncate(err_code);
     let reserved_bits = (PageFaultErrorCode::CAUSED_BY_WRITE
         | PageFaultErrorCode::USER_MODE
-        | PageFaultErrorCode::INSTRUCTION_FETCH)
+        | PageFaultErrorCode::INSTRUCTION_FETCH
+        | PageFaultErrorCode::PROTECTION_VIOLATION)
         .complement();
     if code.intersects(reserved_bits) {
         Err(err_code)
