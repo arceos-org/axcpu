@@ -2,7 +2,7 @@
 
 use memory_addr::VirtAddr;
 
-use crate::TrapFrame;
+use super::{gdt, TrapFrame};
 
 /// Context to enter user space.
 pub struct UspaceContext(TrapFrame);
@@ -16,15 +16,14 @@ impl UspaceContext {
     /// Creates a new context with the given entry point, user stack pointer,
     /// and the argument.
     pub fn new(entry: usize, ustack_top: VirtAddr, arg0: usize) -> Self {
-        use crate::GdtStruct;
         use x86_64::registers::rflags::RFlags;
         Self(TrapFrame {
             rdi: arg0 as _,
             rip: entry as _,
-            cs: GdtStruct::UCODE64_SELECTOR.0 as _,
+            cs: gdt::UCODE64.0 as _,
             rflags: RFlags::INTERRUPT_FLAG.bits(), // IOPL = 0, IF = 1
             rsp: ustack_top.as_usize() as _,
-            ss: GdtStruct::UDATA_SELECTOR.0 as _,
+            ss: gdt::UDATA.0 as _,
             ..Default::default()
         })
     }
@@ -34,10 +33,9 @@ impl UspaceContext {
     /// It copies almost all registers except `CS` and `SS` which need to be
     /// set to the user segment selectors.
     pub const fn from(tf: &TrapFrame) -> Self {
-        use crate::GdtStruct;
         let mut tf = *tf;
-        tf.cs = GdtStruct::UCODE64_SELECTOR.0 as _;
-        tf.ss = GdtStruct::UDATA_SELECTOR.0 as _;
+        tf.cs = gdt::UCODE64.0 as _;
+        tf.ss = gdt::UDATA.0 as _;
         Self(tf)
     }
 

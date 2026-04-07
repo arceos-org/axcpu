@@ -3,7 +3,7 @@
 .altmacro
 .macro DEF_HANDLER, i
 .Ltrap_handler_\i:
-.if \i == 8 || (\i >= 10 && \i <= 14) || \i == 17
+.if \i == 8 || (\i >= 10 && \i <= 14) || \i == 17 || \i == 21 || \i == 29 || \i == 30
     # error code pushed by CPU
     push    \i          # interrupt vector
     jmp     .Ltrap_common

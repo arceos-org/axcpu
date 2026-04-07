@@ -3,7 +3,7 @@ use x86_64::registers::model_specific::{Efer, EferFlags, KernelGsBase, LStar, SF
 use x86_64::registers::rflags::RFlags;
 use x86_64::structures::tss::TaskStateSegment;
 
-use super::{GdtStruct, TrapFrame};
+use super::{gdt, TrapFrame};
 
 #[unsafe(no_mangle)]
 #[percpu::def_percpu]
@@ -26,13 +26,7 @@ pub fn init_syscall() {
     }
     unsafe {
         LStar::write(VirtAddr::new(syscall_entry as *const () as u64));
-        Star::write(
-            GdtStruct::UCODE64_SELECTOR,
-            GdtStruct::UDATA_SELECTOR,
-            GdtStruct::KCODE64_SELECTOR,
-            GdtStruct::KDATA_SELECTOR,
-        )
-        .unwrap();
+        Star::write(gdt::UCODE64, gdt::UDATA, gdt::KCODE64, gdt::KDATA).unwrap();
         SFMask::write(
             RFlags::TRAP_FLAG
                 | RFlags::INTERRUPT_FLAG
