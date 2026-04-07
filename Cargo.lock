@@ -38,9 +38,9 @@ checksum = "993a810118f8f37e9c4411c86f1c4c940a09a7ab34b7bf2d88d06f50c553fab7"
 
 [[package]]
 name = "arm-targets"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d29a37f252452446b67d5e50dee82a6ce12781218b915244bb6507c10b72812"
+checksum = "639ca04328cd85faa54abaa192026d86fe49e278717820c2e92baa232ea7b0ec"
 
 [[package]]
 name = "arrayvec"
@@ -227,9 +227,9 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "percpu"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93b6fe1254fea36c3e47e738d214915a2ec3fbdc9785319af0258b2373997e69"
+checksum = "53cf38d521e1c0c7d294e2653c4a93edb3b60ebb1bc529e2f19a647be8e36176"
 dependencies = [
  "cfg-if",
  "percpu_macros",
@@ -238,11 +238,10 @@ dependencies = [
 
 [[package]]
 name = "percpu_macros"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf0555054a19885a701a7b1680cd727cebbf3a50a2d129fdcc4caaaa08729237"
+checksum = "cb63182b558734ab0fc668b599d89ea97f0f176dabdaae4fdde8ce564644487e"
 dependencies = [
- "cfg-if",
  "proc-macro2",
  "quote",
  "syn",
