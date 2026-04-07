@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0
+## 0.3.1
 
 ### New Features
 
@@ -10,7 +10,7 @@
 ### Breaking Changes
 
 * Upgrade [page_table_multiarch](https://crates.io/crates/page_table_multiarch) crate to v0.6, which adds ARM support. (https://github.com/arceos-org/axcpu/pull/22).
-* Upgrade [percpu](https://crates.io/crates/percpu) crate to v0.3, see [percpu v0.3.0 changelog](https://github.com/arceos-org/percpu/blob/main/CHANGELOG.md#030).
+* Upgrade [percpu](https://crates.io/crates/percpu) crate from v0.2.2 to v0.4, see [percpu changelog](https://github.com/arceos-org/percpu/blob/main/CHANGELOG.md).
 
 ### Bug Fixes
 
