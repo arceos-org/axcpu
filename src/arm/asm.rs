@@ -1,11 +1,10 @@
 //! Wrapper functions for assembly instructions.
 
 use core::arch::asm;
-use memory_addr::{PhysAddr, VirtAddr};
-
-use aarch32_cpu::register::*;
 
 pub use aarch32_cpu::asm::{dmb, dsb, isb, sev, wfe, wfi};
+use aarch32_cpu::register::*;
+use memory_addr::{PhysAddr, VirtAddr};
 
 /// Allows the current CPU to respond to interrupts.
 #[inline]

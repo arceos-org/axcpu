@@ -1,9 +1,9 @@
 //! Structures and functions for user space.
 
 use memory_addr::VirtAddr;
-use riscv::register::sstatus::Sstatus;
 #[cfg(feature = "fp-simd")]
 use riscv::register::sstatus::FS;
+use riscv::register::sstatus::Sstatus;
 
 use crate::{GeneralRegisters, TrapFrame};
 
@@ -23,9 +23,7 @@ impl UspaceContext {
         sstatus.set_spie(true); // enable interrupts
         sstatus.set_sum(true); // enable user memory access in supervisor mode
         #[cfg(feature = "fp-simd")]
-        {
-            sstatus.set_fs(FS::Initial); // set the FPU to initial state
-        }
+        sstatus.set_fs(FS::Initial); // set the FPU to initial state
 
         Self(TrapFrame {
             regs: GeneralRegisters {

@@ -11,9 +11,9 @@ core::arch::global_asm!(include_str!("trap.S"));
 #[allow(dead_code)]
 enum TrapKind {
     Synchronous = 0,
-    Irq = 1,
-    Fiq = 2,
-    SError = 3,
+    Irq         = 1,
+    Fiq         = 2,
+    SError      = 3,
 }
 
 #[repr(u8)]

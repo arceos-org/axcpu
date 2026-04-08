@@ -1,7 +1,8 @@
 //! Helper functions to initialize the CPU states on systems bootstrapping.
 
-use crate::asm;
 use memory_addr::PhysAddr;
+
+use crate::asm;
 
 /// Configures and enables the MMU on the current CPU.
 ///

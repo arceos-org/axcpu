@@ -1,7 +1,11 @@
-use x86_64::addr::VirtAddr;
-use x86_64::registers::model_specific::{Efer, EferFlags, KernelGsBase, LStar, SFMask, Star};
-use x86_64::registers::rflags::RFlags;
-use x86_64::structures::tss::TaskStateSegment;
+use x86_64::{
+    addr::VirtAddr,
+    registers::{
+        model_specific::{Efer, EferFlags, KernelGsBase, LStar, SFMask, Star},
+        rflags::RFlags,
+    },
+    structures::tss::TaskStateSegment,
+};
 
 use super::{GdtStruct, TrapFrame};
 

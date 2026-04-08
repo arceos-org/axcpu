@@ -16,8 +16,9 @@ impl UspaceContext {
     /// Creates a new context with the given entry point, user stack pointer,
     /// and the argument.
     pub fn new(entry: usize, ustack_top: VirtAddr, arg0: usize) -> Self {
-        use crate::GdtStruct;
         use x86_64::registers::rflags::RFlags;
+
+        use crate::GdtStruct;
         Self(TrapFrame {
             rdi: arg0 as _,
             rip: entry as _,
