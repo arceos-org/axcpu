@@ -1,10 +1,8 @@
 //! Helper functions to initialize the CPU states on systems bootstrapping.
 
-pub use super::gdt::init_gdt;
-pub use super::idt::init_idt;
-
 #[cfg(feature = "uspace")]
 pub use super::syscall::init_syscall;
+pub use super::{gdt::init_gdt, idt::init_idt};
 
 /// Initializes the per-CPU data structures.
 ///

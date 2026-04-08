@@ -17,21 +17,21 @@ core::arch::global_asm!(include_str!("trap.S"));
 #[allow(dead_code)]
 pub enum TrapKind {
     /// Reset exception
-    Reset = 0,
+    Reset         = 0,
     /// Undefined instruction exception
-    Undefined = 1,
+    Undefined     = 1,
     /// Software interrupt (SVC) exception
-    Svc = 2,
+    Svc           = 2,
     /// Prefetch abort exception
     PrefetchAbort = 3,
     /// Data abort exception
-    DataAbort = 4,
+    DataAbort     = 4,
     /// Reserved (should never occur)
-    Reserved = 5,
+    Reserved      = 5,
     /// IRQ interrupt
-    Irq = 6,
+    Irq           = 6,
     /// FIQ interrupt
-    Fiq = 7,
+    Fiq           = 7,
 }
 
 /// Handler for invalid/unhandled exceptions.
