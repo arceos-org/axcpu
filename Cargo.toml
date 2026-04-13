@@ -28,6 +28,7 @@ fp-simd = []
 tls = []
 uspace = []
 arm-el2 = []
+xuantie-c9xx = ["page_table_entry/xuantie-c9xx"]
 
 [dependencies]
 linkme = "0.3"
