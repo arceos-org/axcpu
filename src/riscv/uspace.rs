@@ -26,6 +26,9 @@ impl UspaceContext {
         {
             sstatus.set_fs(FS::Initial); // set the FPU to initial state
         }
+        #[cfg(feature = "xuantie-c9xx")]
+        // enable vector status bits of sstatus
+        Self::set_sstatus(&mut sstatus, 0x3 << 23, false);
 
         Self(TrapFrame {
             regs: GeneralRegisters {
@@ -51,6 +54,24 @@ impl UspaceContext {
     /// Gets the stack pointer.
     pub const fn get_sp(&self) -> usize {
         self.0.regs.sp
+    }
+
+    /// Sets the sstatus register.
+    /// Due to the restriction of Sstatus struct, some bits of the sstatus register cannot be effectively set,
+    /// So this function can effectively set the required bits of sstatus.
+    pub fn set_sstatus(sstatus: &mut Sstatus, bits: usize, is_clear: bool) {
+        if bits == 0 {
+            error!("Invalid parameter: {:x}", bits);
+            return;
+        }
+        unsafe {
+            let sstatus_ptr = sstatus as *mut Sstatus as *mut usize;
+            if is_clear {
+                *sstatus_ptr &= !bits;
+            } else {
+                *sstatus_ptr |= bits;
+            }
+        }
     }
 
     /// Sets the instruction pointer.
@@ -79,7 +100,11 @@ impl UspaceContext {
     ///
     /// This function is unsafe because it changes processor mode and the stack.
     pub unsafe fn enter_uspace(&self, kstack_top: VirtAddr) -> ! {
+        use riscv::asm::fence_i;
         use riscv::register::{sepc, sscratch};
+
+        // Refresh all instruction caches before entering the user program space to resolve user program errors
+        fence_i();
 
         crate::asm::disable_irqs();
         // Address of the top of the kernel stack after saving the trap frame.
